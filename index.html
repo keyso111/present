@@ -1,920 +1,1208 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>心形绽放 · 专属礼物</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body {
-    width: 100%; height: 100%; overflow: hidden;
-    background: radial-gradient(circle at center, #2b0018 0%, #14000b 60%, #050002 100%);
-    touch-action: none;
-    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
-    -webkit-user-select: none; user-select: none;
-    cursor: grab;
-  }
-  html:active, body:active { cursor: grabbing; }
-  canvas { display: block; }
-  
-  #hint {
-    position: fixed; left: 50%; bottom: 36px; transform: translateX(-50%);
-    color: rgba(255, 255, 255, 0.4);
-    font-size: 13px; letter-spacing: 3px; white-space: nowrap;
-    pointer-events: none; transition: opacity 1.2s ease;
-  }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>生日礼物</title>
+<style>* { margin: 0; padding: 0; box-sizing: border-box; }
 
-  /* ================= 大字情书 ================= */
-  #letter {
-    position: fixed; inset: 0;
-    display: flex; flex-direction: column; justify-content: center; align-items: center;
-    pointer-events: none; opacity: 0; transition: opacity 2s ease-in-out; z-index: 10;
-  }
-  #letter.show { opacity: 1; }
-  #letter h2 {
-    font-size: 42px; color: #FFFFFF; font-weight: 900; letter-spacing: 5px;
-    text-shadow: 0 0 20px rgba(255, 105, 180, 0.8), 0 0 40px rgba(255, 105, 180, 0.4);
-    margin-bottom: 20px; text-align: center; line-height: 1.5;
-  }
-  #letter p { font-size: 22px; color: #FFB6C1; letter-spacing: 3px; text-align: center; font-weight: 500; }
+html, body {
+  width: 100%; height: 100%;
+  background: #ffffff;
+  overflow: hidden;
+  font-family: "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", sans-serif;
+}
 
-  /* ================= 按钮组 ================= */
-  .action-btn {
-    position: fixed; bottom: 8%; left: 50%; transform: translateX(-50%) translateY(20px);
-    background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.35);
-    color: #FFF; padding: 14px 40px; border-radius: 30px; font-size: 16px; letter-spacing: 2px;
-    min-width: 160px; text-align: center; box-sizing: border-box;
-    cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-    opacity: 0; pointer-events: none; transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1); z-index: 10;
-    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
-  }
-  .action-btn.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
-  .action-btn:active { background: rgba(255, 105, 180, 0.35); }
-  .action-btn:hover { background: rgba(255, 105, 180, 0.3); border-color: #FF69B4; box-shadow: 0 0 20px rgba(255, 105, 180, 0.4); }
+/* ---------- 画爱心阶段的背景：淡粉渐变 + 柔光 + 小圆点底纹 + 上浮的小爱心 ---------- */
+#bgLight {
+  position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 46%, #ffffff 0%, #faf8ff 40%, #efeafa 75%, #e3dcf5 100%);   /* 淡紫白：和粉色文字形成冷暖对比，字更清楚 */
+  opacity: 0; transition: opacity 1s ease;
+}
+#bgLight.on { opacity: 1; }
+#bgLight.off { display: none; }
+#bgLight::before {                      /* 极淡的小圆点底纹，让大面积的白不显得空 */
+  content: ""; position: absolute; inset: 0;
+  background-image: radial-gradient(rgba(150, 130, 210, .14) 1.6px, transparent 2.2px);
+  background-size: 30px 30px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 46%, transparent 25%, #000 85%);
+          mask-image: radial-gradient(ellipse at 50% 46%, transparent 25%, #000 85%);
+}
+#glow {                                 /* 爱心背后的粉色光晕，随心跳一起一胀一缩 */
+  position: absolute; left: 50%; top: 46%;
+  width: min(86vmin, 760px); height: min(86vmin, 760px);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, .95) 0%, rgba(255, 255, 255, .6) 40%, rgba(255, 255, 255, 0) 70%);   /* 爱心后面一团白光，托出文字 */
+  transform: translate(-50%, -50%);
+  will-change: transform;
+}
+#bgLight .fl {                          /* 缓缓上浮的小爱心 */
+  position: absolute; left: var(--x); bottom: -60px;
+  width: var(--s); height: var(--s);
+  color: rgba(160, 140, 225, .30);
+  background: currentColor;             /* 用 SVG 遮罩画爱心：不依赖字体，iOS 上不会变成红色 emoji */
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E") center / contain no-repeat;
+  animation: rise var(--d) linear var(--dl) infinite;
+  will-change: transform;
+}
+#bgLight .fl:nth-of-type(odd) { color: rgba(255, 185, 120, .38); }
+#bgLight .sp {                          /* 闪烁的小星光 */
+  position: absolute; left: var(--x); top: var(--y);
+  font-style: normal; font-size: var(--s); line-height: 1;
+  color: rgba(255, 190, 90, .75);
+  animation: twinkle 3.2s ease-in-out var(--dl) infinite;
+}
+@keyframes rise {
+  0%   { transform: translate3d(0, 0, 0) rotate(-8deg); opacity: 0; }
+  8%   { opacity: 1; }
+  50%  { transform: translate3d(var(--sw), -60vh, 0) rotate(8deg); }
+  92%  { opacity: 1; }
+  100% { transform: translate3d(0, -118vh, 0) rotate(-8deg); opacity: 0; }
+}
+@keyframes twinkle {
+  0%, 100% { opacity: .15; transform: scale(.7) rotate(0deg); }
+  50%      { opacity: 1;   transform: scale(1.15) rotate(20deg); }
+}
 
-  #replay-btn { bottom: 16%; }
-  #save-btn { bottom: 8%; border-color: rgba(255, 182, 193, 0.5); }
-  #save-btn:hover { background: rgba(255, 182, 193, 0.3); border-color: #FFB6C1; box-shadow: 0 0 20px rgba(255, 182, 193, 0.4); }
+/* 雾光背景层：文字墙阶段淡入（白 → 暗紫红 + 朦胧的彩色光雾，和参考图一致） */
+#bgDark {
+  position: fixed; inset: 0; z-index: 0; overflow: hidden;
+  background: linear-gradient(165deg, #331a22 0%, #241218 45%, #2e171d 100%);
+  opacity: 0;
+  transition: opacity 2.2s ease;
+  pointer-events: none;
+}
+#bgDark.on { opacity: 1; }
 
-  /* 手机端：两按钮上下排列，加大点击区域 */
-  @media (max-width: 600px) {
-    .action-btn { min-width: 200px; padding: 15px 36px; font-size: 16px; }
-    #replay-btn { bottom: 18%; }
-    #save-btn { bottom: 9%; }
-  }
+/* 三团缓慢漂移的柔光，只用 transform 动画（走 GPU 合成，不卡） */
+#bgDark i {
+  position: absolute; border-radius: 50%;
+  width: 90vmax; height: 90vmax;
+  will-change: transform;
+}
+#bgDark i:nth-child(1) {
+  left: -25vmax; top: -30vmax;
+  background: radial-gradient(circle, rgba(255, 140, 170, .32) 0%, rgba(255, 140, 170, 0) 62%);
+  animation: fog1 17s ease-in-out infinite alternate;
+}
+#bgDark i:nth-child(2) {
+  right: -30vmax; bottom: -35vmax;
+  background: radial-gradient(circle, rgba(255, 180, 140, .22) 0%, rgba(255, 180, 140, 0) 62%);
+  animation: fog2 21s ease-in-out infinite alternate;
+}
+#bgDark i:nth-child(3) {
+  left: 20vw; top: 15vh;
+  background: radial-gradient(circle, rgba(255, 190, 205, .18) 0%, rgba(255, 190, 205, 0) 60%);
+  animation: fog3 26s ease-in-out infinite alternate;
+}
+@keyframes fog1 { to { transform: translate(18vw, 14vh) scale(1.15); } }
+@keyframes fog2 { to { transform: translate(-16vw, -12vh) scale(1.1); } }
+@keyframes fog3 { to { transform: translate(-14vw, 10vh) scale(0.9); } }
 
-  /* ================= 弹窗样式 ================= */
-  #intro-overlay {
-    position: fixed; inset: 0; background: rgba(20, 0, 10, 0.6);
-    display: flex; justify-content: center; align-items: center;
-    z-index: 100; transition: opacity 0.8s cubic-bezier(0.25, 1, 0.5, 1);
-  }
-  #intro-card {
-    background: #ffffff; border-radius: 20px; padding: 50px 40px 40px 40px; /* 顶部留出空间给照片 */
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255,255,255,0.5) inset;
-    text-align: center; max-width: 90vw; width: 440px;
-    transform: translateY(0) scale(1); transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-    position: relative; z-index: 101;
-    -webkit-tap-highlight-color: transparent;
-  }
+canvas#stage {
+  position: fixed; inset: 0; z-index: 1;
+  width: 100%; height: 100%;
+  display: block;
+  background: transparent;   /* 保持透明，这样弹窗外面看到的是白底而不是黑色 */
+  touch-action: none;
+  cursor: default;
+}
+canvas#stage.grab { cursor: grab; }
+canvas#stage.grabbing { cursor: grabbing; }
 
-  /* ★ 修改：贴纸风格照片展示区 */
-  .photos-container {
-    display: flex; justify-content: center; align-items: flex-start;
-    height: 120px; position: absolute; top: -60px; left: 0; right: 0;
-  }
-  .intro-photo {
-    width: 120px; height: 120px;
-    object-fit: contain; /* 保证不规则图形不被裁切 */
-    /* 使用 drop-shadow 沿着透明图片的边缘发光，而不是方块阴影 */
-    filter: drop-shadow(0 10px 15px rgba(255, 105, 180, 0.4)); 
-    position: absolute; transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  /* 小男孩稍微靠左、往下一点点，小女孩靠右 */
-  .photo-left { transform: translateX(-45px) translateY(10px) rotate(-8deg); z-index: 1; }
-  .photo-right { transform: translateX(45px) translateY(0px) rotate(8deg); z-index: 2; }
-  .photo-left:hover { transform: translateX(-55px) translateY(5px) rotate(0deg) scale(1.15); z-index: 3; }
-  .photo-right:hover { transform: translateX(55px) translateY(-5px) rotate(0deg) scale(1.15); z-index: 3; }
+/* ---------- 炸开瞬间：一团柔和的光（只用 transform / opacity，走 GPU） ---------- */
+#flash {
+  position: fixed; left: 50%; top: 50%; z-index: 3; pointer-events: none;
+  width: 50vmax; height: 50vmax; margin: -25vmax 0 0 -25vmax;
+  border-radius: 50%; opacity: 0; will-change: transform, opacity;
+  background: radial-gradient(circle, rgba(255, 255, 255, .85) 0%, rgba(255, 170, 215, .45) 22%, rgba(190, 100, 255, .16) 45%, rgba(190, 100, 255, 0) 68%);
+  mix-blend-mode: screen;
+}
+#flash.go { animation: flash 1.2s ease-out forwards; }
+@keyframes flash { 0% { opacity: 0; transform: scale(.1); } 15% { opacity: 1; transform: scale(.5); } 100% { opacity: 0; transform: scale(1.2); } }
+/* ---------- 神笔 ---------- */
+#pen {
+  position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 4;
+  transform-origin: 0 0;           /* 以星尖为旋转中心 */
+  opacity: 0; pointer-events: none;
+  will-change: transform, opacity;
+}
+#pen svg {
+  position: absolute; left: -115px; top: -63px;  /* 让五角星中心（约 690,380）正好落在元素原点 */
+  width: 170px; height: 170px;
+  filter: drop-shadow(0 0 12px rgba(255, 215, 106, .7)) drop-shadow(0 4px 6px rgba(120, 30, 80, .3));
+  overflow: visible;
+}
+#pen .star { filter: drop-shadow(0 0 8px rgba(255, 215, 106, .9)); }
+#pen .spark { animation: sparkle 1.4s ease-in-out infinite; }
+#pen .s2 { animation-delay: .3s; }
+#pen .s3 { animation-delay: .7s; }
+@keyframes sparkle { 0%, 100% { opacity: .3; transform: scale(.7); } 50% { opacity: 1; transform: scale(1.15); } }
 
-  #intro-card h1 { font-size: 20px; color: #333; font-weight: 600; margin-bottom: 12px; letter-spacing: 1px; line-height: 1.5; }
-  #intro-card h1 span { color: #FF69B4; font-size: 22px; }
-  #intro-card p { font-size: 14px; color: #999; margin-bottom: 32px; letter-spacing: 1px; }
-  
-  .btn-group { display: flex; gap: 15px; justify-content: center; align-items: center; }
-  .btn {
-    flex: 1; padding: 12px 0; border-radius: 25px; border: none; font-size: 15px; font-weight: 500;
-    cursor: pointer; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); outline: none;
-  }
-  .btn-cancel { background: #F2F2F2; color: #666; }
-  .btn-cancel:hover { background: #E5E5E5; }
-  .btn-confirm { background: linear-gradient(135deg, #FF9EBB 0%, #FF69B4 100%); color: #FFF; box-shadow: 0 6px 20px rgba(255, 105, 180, 0.4); }
-  .btn-confirm:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(255, 105, 180, 0.6); }
-  .btn-confirm:active { transform: translateY(0); }
-  .fade-out { opacity: 0 !important; pointer-events: none; }
-  .scale-out { transform: scale(0.9) !important; }
+/* ---------- 开场弹窗 ---------- */
+#mask {
+  position: fixed; inset: 0; z-index: 10;
+  background: rgba(40, 20, 50, .35);   /* 白底上呈现柔和的灰色 */
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity .5s ease;
+}
+#mask.hide { opacity: 0; pointer-events: none; }
+#mask.gone { display: none; }
 
-  #music-tip {
-    position: fixed; top: 20px; right: 20px; color: rgba(255,255,255,0.4);
-    font-size: 20px; cursor: pointer; z-index: 50; transition: all 0.3s;
-  }
-  #music-tip:hover { color: #FF69B4; }
-  #music-tip.paused { opacity: 0.3; }
+#dialog {
+  width: min(86vw, 360px);
+  background: #fff;
+  border-radius: 20px;
+  padding: 30px 24px 22px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(120, 40, 90, .35);
+  animation: pop .5s cubic-bezier(.2, 1.4, .4, 1) both;
+}
+#dialog.shake { animation: shake .45s ease; }
+#dialog .icon { font-size: 54px; line-height: 1; animation: float 2.2s ease-in-out infinite; }
+#dialog h2 { margin: 14px 0 6px; font-size: 20px; color: #333; font-weight: 700; }
+#dialog p { font-size: 14px; color: #999; margin-bottom: 22px; min-height: 20px; }
+
+.btns { display: flex; gap: 12px; }
+.btns button {
+  flex: 1; padding: 12px 0; font-size: 16px; border: 0; border-radius: 999px;
+  cursor: pointer; font-family: inherit; transition: transform .15s, box-shadow .15s;
+}
+.btns button:active { transform: scale(.95); }
+#cancel { background: #f3f3f5; color: #888; }
+#ok {
+  background: linear-gradient(135deg, #ff7aa8, #ff4d88);
+  color: #fff; font-weight: 700;
+  box-shadow: 0 6px 16px rgba(255, 77, 136, .4);
+}
+#ok:hover { box-shadow: 0 8px 22px rgba(255, 77, 136, .55); }
+
+@keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); } 20% { transform: translateX(-10px); }
+  40% { transform: translateX(10px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(6px); }
+}
+
+
+/* ---------- 右下角“我要制作”侧边按钮（始终显示在最上层） ---------- */
+#make {
+  position: fixed; right: 0; bottom: calc(14vh + env(safe-area-inset-bottom, 0px)); z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; padding: 12px 0;
+  writing-mode: vertical-rl; text-orientation: upright;
+  letter-spacing: 3px; font-size: 13px; line-height: 1; font-weight: 600;
+  color: #fff; text-decoration: none;
+  background: #78b6f2;
+  border-radius: 10px 0 0 10px;
+  box-shadow: 0 4px 14px rgba(70, 140, 220, .35);
+  -webkit-tap-highlight-color: transparent;
+  transition: width .15s ease, background .15s ease;
+}
+#make:hover, #make:active { background: #5da6ec; width: 34px; }
+
+/* ================= 弹窗双人照片（贴纸风） ================= */
+#dialog { padding-top: 64px; }
+.photos { position: relative; height: 110px; margin-bottom: 6px; }
+.photo {
+  position: absolute; bottom: 0; width: 96px; height: 96px; object-fit: contain;
+  filter: drop-shadow(0 8px 14px rgba(255, 77, 136, .45));
+  transition: transform .35s cubic-bezier(.34,1.56,.64,1);
+}
+.photo-l { left: 50%; transform: translateX(-110%) rotate(-8deg); }
+.photo-r { left: 50%; transform: translateX(10%) rotate(8deg); }
+.photo-l:active, .photo-r:active { transform: translateX(-50%) rotate(0) scale(1.12); }
+
+/* ================= 结尾情书 ================= */
+#letter {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -46%);
+  z-index: 20; text-align: center; pointer-events: none;
+  opacity: 0; transition: opacity 1.6s ease;
+}
+#letter.show { opacity: 1; }
+#letter h2 {
+  font-size: clamp(26px, 7vw, 40px); font-weight: 800; letter-spacing: 2px;
+  color: #fff; text-shadow: 0 0 24px rgba(255, 120, 170, .8), 0 2px 10px rgba(0,0,0,.25);
+  margin: 0 0 10px;
+}
+#letter p { font-size: 16px; color: rgba(255, 225, 235, .9); letter-spacing: 3px; margin: 0; }
+
+/* ================= 再看一次按钮 ================= */
+.replay-btn {
+  position: fixed; left: 50%; bottom: 9%; transform: translateX(-50%) translateY(16px);
+  z-index: 21; min-width: 180px; padding: 13px 38px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.4); color: #fff; font-size: 16px; letter-spacing: 2px;
+  background: rgba(255, 77, 136, .28); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  cursor: pointer; opacity: 0; pointer-events: none;
+  transition: opacity .6s ease, transform .6s ease, background .2s;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.replay-btn.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+.replay-btn:active { background: rgba(255, 77, 136, .5); }
+@media (max-width: 600px) { .replay-btn { min-width: 200px; padding: 15px 36px; } }
 </style>
 </head>
 <body>
 
-<audio id="bgm" src="./bgm.mp3" crossorigin="anonymous" loop></audio>
+<!-- 祝福语：全部写在这一个标签里，一行一条（也可以用 | 隔开）。想改、想加、想删直接改这里，页面上不会显示它 -->
+<div id="messages" hidden>
+我爱你
+希望你一直开心
+开心
+万事胜意
+生日快乐
+平安喜乐
+想你
+很高兴遇见你
+心动
+i luv u
+宝宝
+学会爱自己
+才能更好地爱别人
+我想你了
+早点休息
+记得好好护肤
+天冷了多穿衣服
+今天过得开心嘛
+顺顺利利
+</div>
 
-<div id="intro-overlay">
-  <div id="intro-card">
-    
-    <!-- ★ 注意这里图片后缀改成了 .png -->
-    <div class="photos-container">
-      <img src="./photo1.png" class="intro-photo photo-left" alt="小男孩" onerror="this.style.display='none'">
-      <img src="./photo2.png" class="intro-photo photo-right" alt="小女孩" onerror="this.style.display='none'">
+<!-- 背景 1：画爱心阶段——淡粉渐变 + 柔光 + 缓缓上浮的小爱心和星光（点击确定后淡入） -->
+<div id="bgLight" aria-hidden="true">
+  <div id="glow"></div>
+  <i class="fl" style="--x:6%;  --s:22px; --d:19s; --dl:-2s;  --sw:30px"></i>
+  <i class="fl" style="--x:15%; --s:36px; --d:24s; --dl:-11s; --sw:-26px"></i>
+  <i class="fl" style="--x:27%; --s:18px; --d:17s; --dl:-6s;  --sw:22px"></i>
+  <i class="fl" style="--x:38%; --s:28px; --d:22s; --dl:-15s; --sw:-34px"></i>
+  <i class="fl" style="--x:52%; --s:16px; --d:18s; --dl:-9s;  --sw:28px"></i>
+  <i class="fl" style="--x:63%; --s:32px; --d:26s; --dl:-4s;  --sw:-22px"></i>
+  <i class="fl" style="--x:74%; --s:20px; --d:20s; --dl:-13s; --sw:36px"></i>
+  <i class="fl" style="--x:84%; --s:38px; --d:25s; --dl:-8s;  --sw:-30px"></i>
+  <i class="fl" style="--x:93%; --s:24px; --d:21s; --dl:-17s; --sw:24px"></i>
+  <i class="sp" style="--x:10%; --y:20%; --s:16px; --dl:-1s">✦</i>
+  <i class="sp" style="--x:88%; --y:16%; --s:22px; --dl:-2.4s">✦</i>
+  <i class="sp" style="--x:20%; --y:78%; --s:14px; --dl:-0.6s">✦</i>
+  <i class="sp" style="--x:80%; --y:72%; --s:18px; --dl:-3.1s">✦</i>
+  <i class="sp" style="--x:46%; --y:9%;  --s:12px; --dl:-1.7s">✦</i>
+  <i class="sp" style="--x:58%; --y:90%; --s:15px; --dl:-2.8s">✦</i>
+</div>
+
+<!-- 背景 2：朦胧雾光层（文字墙阶段淡入） -->
+<div id="bgDark"><i></i><i></i><i></i></div>
+
+<!-- 动画画布（WebGL） -->
+<canvas id="stage"></canvas>
+
+<!-- 炸开瞬间的柔光 -->
+<div id="flash" aria-hidden="true"></div>
+
+<!-- 魔法棒：星尖位于该元素原点，由脚本沿心形轨迹移动 -->
+<div id="pen" aria-hidden="true">
+  <svg class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="170" height="170">
+    <!-- 棒身：从右下斜到左上星尖 -->
+    <path d="M250 820 L690 380" stroke="#f6c453" stroke-width="34" stroke-linecap="round"/>
+    <path d="M250 820 L690 380" stroke="#fff3d0" stroke-width="12" stroke-linecap="round" opacity="0.7"/>
+    <!-- 五角星（棒尖） -->
+    <path class="star" d="M690 250 l38 108 114 8 -88 74 28 112 -92 -60 -92 60 28 -112 -88 -74 114 -8 z" fill="#ffd76a" stroke="#fff" stroke-width="10" stroke-linejoin="round"/>
+    <!-- 周围闪光小星 -->
+    <path class="spark s1" d="M820 300 l12 34 34 12 -34 12 -12 34 -12 -34 -34 -12 34 -12 z" fill="#fff"/>
+    <path class="spark s2" d="M620 180 l9 26 26 9 -26 9 -9 26 -9 -26 -26 -9 26 -9 z" fill="#ffe9a8"/>
+    <circle class="spark s3" cx="800" cy="430" r="10" fill="#fff"/>
+  </svg>
+</div>
+
+<!-- 开场弹窗 -->
+<div id="mask">
+  <div id="dialog">
+    <div class="photos">
+      <img src="./photo1.png" class="photo photo-l" alt="他" onerror="this.style.display='none'">
+      <img src="./photo2.png" class="photo photo-r" alt="她" onerror="this.style.display='none'">
     </div>
-
-    <h1 style="margin-top: 20px;"><span>菜小鱼同学</span>是否要收下<br>这份来自4714的礼物？</h1>
-    <p>有人给你准备了一份小惊喜～</p>
-    <div class="btn-group">
-      <button class="btn btn-cancel" id="btn-cancel">取消</button>
-      <button class="btn btn-confirm" id="btn-confirm">确定</button>
+    <h2>菜小鱼同学是否要收下<br>这份来自4714的礼物？</h2>
+    <p id="tip">有人给你准备了一份小惊喜～</p>
+    <div class="btns">
+      <button id="cancel">取消</button>
+      <button id="ok">确定</button>
     </div>
   </div>
 </div>
 
-<canvas id="c"></canvas>
-<div id="hint">拖拽旋转 · 滚轮缩放 · 滑动拨动星河</div>
-<div id="music-tip" title="点击开关音乐">🎵</div>
-
+<!-- 结尾祝福情书（文字墙散开后淡入） -->
 <div id="letter">
   <h2>生日快乐 宝宝</h2>
   <p>——4714</p>
 </div>
 
-<button id="replay-btn" class="action-btn">再看一次</button>
-<button id="save-btn" class="action-btn">保存这一刻</button>
+<!-- 再看一次 -->
+<button id="replay" class="replay-btn">再看一次</button>
 
-<script>
-(function () {
+<script>/* =====================================================================
+ *  万圣节礼物 · 祝福语爱心动画（WebGL 版）
+ *
+ *  流程：弹窗 → 点“确定” → 祝福语飞入聚成粉色爱心 → 心跳 →
+ *        快速汇聚到一点 → 炸开成一面发光的 3D 文字墙
+ *
+ *  文字墙交互：单指/鼠标按住拖动 = 倾斜角度；双指拉伸/滚轮 = 放大缩小
+ *
+ *  所有文字都是 WebGL 里的“带透视的小平面”，一次绘制完成，所以很流畅。
+ * ===================================================================== */
+(() => {
   'use strict';
 
-  const WORDS = [
-    "我爱你", "希望你一直开心", "开心", "万事胜意", "生日快乐", "❤",
-    "平安喜乐", "想你", "很高兴遇见你", "心动", "i luv u", "宝宝",
-    "学会爱自己", "才能更好地爱别人", "我想你了", "早点休息",
-    "记得好好护肤", "天冷了多穿衣服", "今天过得开心嘛", "顺顺利利"
+  /* ===================== 可自由修改的配置 ===================== */
+  // 祝福语写在 index.html 的 <div id="messages"> 一个标签里，一行一条或用 | 隔开（同一句重复写几次，出现的机会就更大）
+  // 用户上传/自定义的内容可能混进 <br>、<p>、不间断空格、零宽字符、超长句子等，这里统一清洗，避免把渲染搞坏
+  const MAX_CHARS = 14;            // 单条最长字数，更长的会按标点/长度自动拆成几条
+  const MAX_ENTRIES = 300;         // 最多使用多少条（含重复）
+  function cleanMessages(raw) {
+    const lines = String(raw || '')
+      .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&nbsp;|&#160;/gi, ' ').replace(/&amp;/gi, '&')
+      .replace(/<\s*br\s*\/?\s*>|<\/\s*(p|div|li|tr|h\d)\s*>/gi, '\n')     // 换行类标签 → 换行
+      .replace(/<[^>]*>/g, '')                                              // 其余标签直接丢掉
+      .split(/[\n\r|]+/);
+    const out = [];
+    for (let line of lines) {
+      line = line.replace(/[\u200B-\u200F\u2028-\u202F\u2060\uFEFF\u00A0\u3000]/g, ' ')   // 零宽字符、特殊空格
+        .replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!line) continue;
+      const chars = Array.from(line);
+      if (chars.length <= MAX_CHARS) { out.push(line); continue; }
+      // 太长：先按标点拆，再把短的拼起来，最后还超长的硬切
+      let cur = '';
+      const flush = () => { if (cur) out.push(cur); cur = ''; };
+      const parts = line.match(/[^，。！？；、,.!?;~…]+[，。！？；、,.!?;~…]*|[，。！？；、,.!?;~…]+/g) || [line];   // 按标点切开（不用后行断言，兼容旧版 iOS）
+      for (const part of parts) {
+        const pc = Array.from(part);
+        if (Array.from(cur).length + pc.length <= MAX_CHARS) { cur += part; continue; }
+        flush();
+        for (let i = 0; i < pc.length; i += MAX_CHARS) {
+          const seg = pc.slice(i, i + MAX_CHARS).join('');
+          if (i + MAX_CHARS < pc.length) out.push(seg); else cur = seg;
+        }
+      }
+      flush();
+    }
+    return out.map(s => s.trim()).filter(Boolean).slice(0, MAX_ENTRIES);
+  }
+  let MESSAGES = cleanMessages(document.getElementById('messages')?.textContent);
+  if (!MESSAGES.length) MESSAGES = ['祝你天天开心'];   // 万一一条都没写，给个兜底
+
+  // 背景音乐（点击“确定”后自动播放，循环）
+  const BGM_URL = './bgm.mp3';
+
+  // 时间线（秒）
+  const T_PEN_IN = 1.0;   // 神笔飞入到起笔点
+  const T_DRAW   = 6.5;   // 神笔勾画爱心（越大越慢）
+  const T_SPRAY  = 0.8;   // 每个字从笔尖喷出、落到位置的时长
+  const T_PAUSE  = 0.3;   // 爱心画完后，笔停在原地的短暂时间（笔不离场，随后直接开始收）
+  const T_LOOP   = 1.6;   // 汇聚第一段：笔沿着爱心轮廓再走一圈，路过的字被笔“带走”，在笔后面拖成一条尾巴
+  const T_SWOOP  = 0.6;   // 汇聚第二段：笔拖着整条字带划向屏幕中心
+  const T_GRAB   = 0.55;  // 字被笔带走后，从原位置过渡到尾巴里的时长（必须短于 T_LOOP 才不显得“吸”）
+  const T_TAIL   = 0.3;   // 字跟在笔后面的最大滞后（越大，拖出的尾巴越长）
+  const T_SHRINK = T_LOOP + T_SWOOP + T_TAIL + 0.1;   // 汇聚到一点的总时长
+  const T_BURST  = 4.0;   // 从中心炸开成 3D 空间
+
+  // 爱心阶段的暖蜜桃粉（全程不变色，只有深浅差异）
+  const HEART_COLORS = [
+    "#ff8fb1", "#ffa6c0", "#ff7aa8", "#ff9eb5", "#ffb3c9", "#ff85a9", "#ff99bd", "#ffabc6",
+    "#ff8fb1", "#ffa6c0", "#ff7aa8", "#ff99bd"
   ];
-  const COLORS = [
-    "#FFFFFF", "#FFF5F7", "#FFE4E1", "#FFD1DC", "#FFC0CB", 
-    "#FFB6C1", "#FF9EBB", "#FF8FAB", "#FF69B4"
-  ];
 
-  const CFG = {
-    densityFactor: 1.0, 
-    maxParticles: 1600,
-    minParticles: 600,
-    heartScaleDiv: 46,
-    baseFont: 14,        
-    minFont: 8,
-    maxFont: 65,         
-    focal: 800,          
-    durations: {
-      draw: 4.0,      
-      shrink: 1.5,    
-      explode: 1.2,
+  const AUTO_ROTATE = 0.07;                // 空闲时的自动旋转速度（弧度/秒）
+  const ZOOM_MIN = 0.55, ZOOM_MAX = 2.8;   // 缩放范围
+  const STROKE_W = 4.4;                    // 笔画粗细（心形坐标单位，约 1 单位 = 十几个像素）
+  /* =========================================================== */
+
+  const T_END = T_PEN_IN + T_DRAW;                       // 爱心画完的时刻
+  const A1 = T_END + T_SPRAY, B1 = T_END + T_PAUSE, C1 = B1 + T_SHRINK, D1 = C1 + T_BURST;
+  const FOV = 60 * Math.PI / 180;
+  const NEAR = 24;
+
+  const $ = id => document.getElementById(id);
+  const canvas = $('stage'), mask = $('mask'), dialog = $('dialog'), tip = $('tip');
+  const bgDark = $('bgDark'), bgLight = $('bgLight'), glowEl = $('glow'), pen = $('pen');
+  const letterEl = $('letter'), replayBtn = $('replay');
+
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const clamp = (v, a = 0, b = 1) => v < a ? a : v > b ? b : v;
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+  const easeOutQuart = t => 1 - Math.pow(1 - t, 4);
+  const easeInOutCubic = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+  const hex2rgb = h => [parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255];
+  const HEART_RGB = HEART_COLORS.map(hex2rgb);
+
+  function hsl2rgb(h, s, l, out, o) {
+    h = ((h % 360) + 360) % 360 / 360;
+    const q = l < .5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+    const f = t => { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < .5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
+    out[o] = f(h + 1 / 3); out[o + 1] = f(h); out[o + 2] = f(h - 1 / 3);
+  }
+
+  /* ===================== WebGL 初始化 ===================== */
+  const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false, powerPreference: 'high-performance' });
+
+  // —— 取消按钮（即使没有 WebGL 也要能响应）——
+  const cancelTips = ["真的不要吗？🥺", "4714的礼物已经准备好啦，看一眼再走嘛~", "确定不看看是什么吗？", "真的是个超级大惊喜哦！✨"];
+  let cancelCount = 0;
+  $('cancel').addEventListener('click', () => {
+    tip.textContent = cancelTips[cancelCount++ % cancelTips.length];
+    dialog.classList.remove('shake');
+    void dialog.offsetWidth;
+    dialog.classList.add('shake');
+  });
+
+  if (!gl) {
+    $('ok').addEventListener('click', () => { tip.textContent = '当前浏览器不支持 WebGL，请换 Chrome / Edge / Safari 试试'; });
+    return;
+  }
+
+  function makeShader(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, makeShader(gl.VERTEX_SHADER, `
+    attribute vec4 aPos; attribute vec2 aUV; attribute vec4 aCol; attribute vec4 aGlow;
+    varying vec2 vUV; varying vec4 vCol; varying vec4 vGlow;
+    void main(){ gl_Position = aPos; vUV = aUV; vCol = aCol; vGlow = aGlow; }
+  `));
+  // 贴图通道约定：R = 文字本体，A = 文字+光晕的覆盖度
+  // vCol.rgb = 文字颜色, vCol.a = 透明度, vGlow.rgb = 光晕颜色, vGlow.a = 光晕强度(0~1)
+  gl.attachShader(prog, makeShader(gl.FRAGMENT_SHADER, `
+    precision mediump float;
+    uniform sampler2D uTex;
+    varying vec2 vUV; varying vec4 vCol; varying vec4 vGlow;
+    void main(){
+      vec4 t = texture2D(uTex, vUV);
+      float g = vGlow.a * 0.85;
+      float cov = t.a * (t.r + (1.0 - t.r) * g);
+      vec3 col = mix(vGlow.rgb, vCol.rgb, t.r);
+      float a = cov * vCol.a;
+      gl_FragColor = vec4(col * a, a);
     }
-  };
+  `));
+  gl.bindAttribLocation(prog, 0, 'aPos');
+  gl.bindAttribLocation(prog, 1, 'aUV');
+  gl.bindAttribLocation(prog, 2, 'aCol');
+  gl.bindAttribLocation(prog, 3, 'aGlow');
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+  gl.uniform1i(gl.getUniformLocation(prog, 'uTex'), 0);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  gl.disable(gl.DEPTH_TEST);
 
-  const canvas = document.getElementById('c');
-  const ctx = canvas.getContext('2d', { alpha: true }); 
-  const hintEl = document.getElementById('hint');
-  const letterEl = document.getElementById('letter');
-  const replayBtn = document.getElementById('replay-btn');
-  const saveBtn = document.getElementById('save-btn');
-  const bgmAudio = document.getElementById('bgm');
-  const musicTip = document.getElementById('music-tip');
+  /* ===================== 精灵图集 =====================
+   * 两张图集：
+   *   flat —— 爱心阶段用：小字号、无光晕，文字清晰锐利
+   *   glow —— 文字墙阶段用：大字号、带柔和光晕
+   */
+  const AW = 2048;
+  const FONT_FAMILY = '"PingFang SC","Microsoft YaHei","Hiragino Sans GB",sans-serif';
+  const GLOW_FONT = 56, FLAT_FONT = 36;
+  let atlasGlow = null, atlasFlat = null;
 
-  let W = 0, H = 0, DPR = 1, cx = 0, cy = 0;
-  let heartScale = 1;
+  function heartPoint(t) {   // 心形曲线，原点在心形几何中心，y 向下
+    const x = 16 * Math.pow(Math.sin(t), 3);
+    const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+    return [x, y - 2.5];
+  }
 
-  const fontCache = new Map();
-  function getFont(size) {
-    const s = Math.round(size);
-    let f = fontCache.get(s);
-    if (!f) {
-      f = '900 ' + s + 'px "PingFang SC","Microsoft YaHei",sans-serif';
-      fontCache.set(s, f);
+  /* ---- 心形笔画路径：按“弧长”均匀采样 ----
+   * 心形曲线按角度均匀取点时，尖角和凹口处会挤成一团，所以爱心看起来不均匀。
+   * 这里先把整条曲线按弧长切成等距的小段：s=0 是底部尖角，沿左侧向上、绕过两个圆弧、
+   * 下到中间凹口、再沿右侧回到底部。文字沿 s 均匀分布，笔也沿 s 匀速前进。
+   * 同时记录每一点的法线，让笔画有均匀的粗细（而不是像以前那样把心形整体缩放）。 */
+  const HP_N = 800;
+  const HP = { x: new Float32Array(HP_N + 1), y: new Float32Array(HP_N + 1), nx: new Float32Array(HP_N + 1), ny: new Float32Array(HP_N + 1), len: new Float32Array(HP_N + 1), total: 0 };
+  (function buildHeartPath() {
+    for (let i = 0; i <= HP_N; i++) {
+      const [x, y] = heartPoint(Math.PI + i / HP_N * Math.PI * 2);
+      HP.x[i] = x; HP.y[i] = y;
+      HP.len[i] = i ? HP.len[i - 1] + Math.hypot(x - HP.x[i - 1], y - HP.y[i - 1]) : 0;
     }
-    return f;
-  }
-
-  let bgStars = [];
-  function initBgStars() {
-    bgStars = [];
-    const starCount = isMobile() ? 35 : 80;
-    for (let i = 0; i < starCount; i++) {
-      bgStars.push({
-        x: Math.random() * W, y: Math.random() * H,
-        r: Math.random() * 2 + 0.5, alpha: Math.random() * 0.5 + 0.1,
-        speed: Math.random() * 0.2 + 0.05, phase: Math.random() * Math.PI * 2
-      });
+    HP.total = HP.len[HP_N];
+    for (let i = 0; i <= HP_N; i++) {
+      // 尖角/凹口处切线会突然反向，只在方向连续时才取前后平均
+      const ip = i > 0 ? i - 1 : HP_N - 1, inx = i < HP_N ? i + 1 : 1;
+      let bx = HP.x[i] - HP.x[ip], by = HP.y[i] - HP.y[ip], fx = HP.x[inx] - HP.x[i], fy = HP.y[inx] - HP.y[i];
+      let bl = Math.hypot(bx, by) || 1, fl = Math.hypot(fx, fy) || 1;
+      bx /= bl; by /= bl; fx /= fl; fy /= fl;
+      let tx = bx, ty = by;
+      if (bx * fx + by * fy > 0) { tx = bx + fx; ty = by + fy; }
+      const tl = Math.hypot(tx, ty) || 1;
+      HP.nx[i] = ty / tl; HP.ny[i] = -tx / tl;
     }
+  })();
+
+  // 取路径上进度为 s(0~1) 的点：out = [x, y, 法线x, 法线y]
+  function heartPath(s, out) {
+    s = clamp(s);
+    const target = s * HP.total;
+    let lo = 0, hi = HP_N;
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (HP.len[mid] <= target) lo = mid; else hi = mid; }
+    const seg = HP.len[hi] - HP.len[lo] || 1, f = (target - HP.len[lo]) / seg;
+    out[0] = HP.x[lo] + (HP.x[hi] - HP.x[lo]) * f;
+    out[1] = HP.y[lo] + (HP.y[hi] - HP.y[lo]) * f;
+    const nx = HP.nx[lo] + (HP.nx[hi] - HP.nx[lo]) * f, ny = HP.ny[lo] + (HP.ny[hi] - HP.ny[lo]) * f, nl = Math.hypot(nx, ny) || 1;
+    out[2] = nx / nl; out[3] = ny / nl;
+    return out;
   }
-
-  let trailParticles = [];
-  const TRAIL_CHARS = ['✦', '✧', '+', '·', '❀']; 
-  const TRAIL_COLORS = ['#FFB6C1', '#FFE4E1', '#FFFFFF', '#FF69B4']; 
-
-  function isMobile() {
-    return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 600;
+  // 笔画在两个尖角处收细，像毛笔收锋
+  function strokeTaper(s) {
+    const d = Math.min(s, 1 - s, Math.abs(s - 0.5));
+    return 0.3 + 0.7 * clamp(d / 0.07);
   }
+  // 让心形刚好放进屏幕（含笔画粗细）
+  const heartScaleNow = () => Math.min(W / (2 * (16 + STROKE_W / 2) + 6), H / (2 * (14.5 + STROKE_W / 2) + 6));
 
-  function resize() {
-    // 手机端把 DPR 限制到 1.5，避免超高分辨率画布导致掉帧
-    const maxDPR = isMobile() ? 1.5 : 2;
-    DPR = Math.min(window.devicePixelRatio || 1, maxDPR);
-    W = window.innerWidth;
-    H = window.innerHeight;
-    canvas.width = Math.round(W * DPR);
-    canvas.height = Math.round(H * DPR);
-    canvas.style.width = W + 'px';
-    canvas.style.height = H + 'px';
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    cx = W / 2; cy = H / 2;
-    heartScale = Math.min(W, H) / CFG.heartScaleDiv;
-    initBgStars();
-    if (particles.length) {
-      for (let i = 0; i < particles.length; i++) updateParticleTarget(particles[i]);
+  // 把一批小图按行排进图集，返回图集高度（2 的幂）
+  function layoutItems(items) {
+    let x = 0, y = 0, rowH = 0;
+    for (const it of items) {
+      if (x + it.w > AW) { x = 0; y += rowH; rowH = 0; }
+      it.x = x; it.y = y; x += it.w; rowH = Math.max(rowH, it.h);
     }
+    let AH = 256; while (AH < y + rowH) AH *= 2;
+    return AH;
   }
 
-  function heartX(t) { const s = Math.sin(t); return 16 * s * s * s; }
-  function heartY(t) {
-    return 13 * Math.cos(t) - 5 * Math.cos(2 * t)
-         - 2 * Math.cos(3 * t) - Math.cos(4 * t) + 2.5;
+  // 祝福语太多时图集会超出手机 GPU 允许的最大贴图尺寸（贴图失效 = 画面全是拉长的条纹），
+  // 所以先估算高度，超了就只保留前面不重复的一部分
+  function fitMessages() {
+    const limit = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE) || 2048, 4096);
+    const m = document.createElement('canvas').getContext('2d');
+    m.font = `${GLOW_FONT}px ${FONT_FAMILY}`;
+    const uniq = Array.from(new Set(MESSAGES));
+    const height = list => layoutItems(list.map(t => ({ w: Math.min(AW, Math.ceil(m.measureText(t).width) + 80), h: Math.ceil(GLOW_FONT * 1.3) + 80 })).concat([{ w: 220, h: 220 }, { w: 96, h: 96 }]));
+    while (uniq.length > 6 && height(uniq) > limit) uniq.pop();
+    if (uniq.length < new Set(MESSAGES).size) { const keep = new Set(uniq); MESSAGES = MESSAGES.filter(t => keep.has(t)); }
   }
 
-  let particles = [];
-  function updateParticleTarget(p) {
-    p.tx = heartX(p.t) * heartScale * p.spread;
-    p.ty = -heartY(p.t) * heartScale * p.spread;
-  }
+  function buildAtlas(font, pad, glow) {
+    const m = document.createElement('canvas').getContext('2d');
+    m.font = `${font}px ${FONT_FAMILY}`;
+    const texts = Array.from(new Set(MESSAGES)); texts.push('♥');
+    const items = texts.map(txt => {
+      const draw = txt === '♥' ? '\u2665\uFE0E' : txt;       // ♥ 强制用文字样式，避免在 iOS 上变成红色 emoji
+      return { kind: 'text', txt, draw, w: Math.min(AW, Math.ceil(m.measureText(draw).width) + pad * 2), h: Math.ceil(font * 1.3) + pad * 2 };
+    });
+    if (glow) items.push({ kind: 'heart', w: 220, h: 220 }, { kind: 'dot', w: 96, h: 96 });
+    const AH = layoutItems(items);
 
-  function createParticle(t) {
-    const spread = 0.88 + Math.random() * 0.14;
-    const p = {
-      t: t, spread: spread, phase: Math.random() * Math.PI * 2,
-      word: WORDS[(Math.random() * WORDS.length) | 0],
-      color: COLORS[(Math.random() * COLORS.length) | 0],
-      tx: 0, ty: 0, tz: (Math.random() - 0.5) * 220 * spread,
-      x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, scale: 0 
-    };
-    updateParticleTarget(p);
-    return p;
-  }
-
-  function buildParticles() {
-    // 手机端大幅减少粒子数量，保证流畅；桌面端保持原密度
-    const mobile = isMobile();
-    const maxP = mobile ? 550 : CFG.maxParticles;
-    const minP = mobile ? 220 : CFG.minParticles;
-    const count = Math.max(minP, Math.min(maxP, Math.round(Math.min(W, H) * CFG.densityFactor)));
-    particles = new Array(count);
-    for (let i = 0; i < count; i++) {
-      const t = (i / count) * Math.PI * 2;
-      particles[i] = createParticle(t);
+    const c = document.createElement('canvas'); c.width = AW; c.height = AH;
+    const g = c.getContext('2d');
+    const map = {};
+    for (const it of items) {
+      g.save();
+      g.beginPath(); g.rect(it.x, it.y, it.w, it.h); g.clip();
+      if (it.kind === 'text') {
+        g.font = `${font}px ${FONT_FAMILY}`;
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillStyle = 'rgb(255,0,0)';                    // R：文字本体
+        const cx = it.x + it.w / 2, cy = it.y + it.h / 2 + font * 0.04;
+        if (glow) {
+          g.shadowColor = 'rgb(0,255,0)';                // G：光晕（宽 + 窄两层，像雾一样柔和）
+          g.shadowBlur = 30; g.fillText(it.draw, cx, cy); g.fillText(it.draw, cx, cy);
+          g.shadowBlur = 10; g.fillText(it.draw, cx, cy);
+        } else {
+          g.fillText(it.draw, cx, cy);
+        }
+      } else if (it.kind === 'heart') {
+        g.fillStyle = 'rgb(255,0,0)'; g.shadowColor = 'rgb(255,0,0)'; g.shadowBlur = 20;
+        g.beginPath();
+        for (let i = 0; i <= 80; i++) {
+          const [hx, hy] = heartPoint(i / 80 * Math.PI * 2);
+          const px = it.x + it.w / 2 + hx * 5.2, py = it.y + it.h / 2 + hy * 5.2;
+          i ? g.lineTo(px, py) : g.moveTo(px, py);
+        }
+        g.closePath(); g.fill();
+      } else {
+        const gr = g.createRadialGradient(it.x + 48, it.y + 48, 0, it.x + 48, it.y + 48, 44);
+        gr.addColorStop(0, 'rgba(255,0,0,1)'); gr.addColorStop(.35, 'rgba(255,0,0,.6)'); gr.addColorStop(1, 'rgba(255,0,0,0)');
+        g.fillStyle = gr; g.fillRect(it.x, it.y, it.w, it.h);
+      }
+      g.restore();
+      const key = it.kind === 'text' ? it.txt : it.kind;
+      map[key] = { w: it.w, h: it.h, u0: (it.x + 1) / AW, v0: (it.y + 1) / AH, u1: (it.x + it.w - 1) / AW, v1: (it.y + it.h - 1) / AH };
     }
-    particles.sort((a, b) => a.t - b.t);
+
+    const tex = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const aniso = gl.getExtension('EXT_texture_filter_anisotropic');
+    if (aniso) gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
+    return { map, tex, font };
   }
 
-  let state = 'draw';
-  let stateTime = 0;
-  let totalTime = 0;
-  let isStarted = false; 
+  /* ===================== 顶点缓冲 ===================== */
+  const FLOATS = 14;                       // pos4 + uv2 + col4 + glow4
+  const vbuf = gl.createBuffer(), ibuf = gl.createBuffer();
+  let vdata, idata, depth, ids = [], maxQ = 0, nq = 0;
 
-  let angY = 0, angX = 0;
-  let targetAngY = 0, targetAngX = 0;
-  let isDragging = false;
+  function allocBuffers(n) {
+    maxQ = n;
+    vdata = new Float32Array(n * 4 * FLOATS);
+    idata = new Uint16Array(n * 6);
+    depth = new Float32Array(n);
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbuf);
+    gl.bufferData(gl.ARRAY_BUFFER, vdata.byteLength, gl.DYNAMIC_DRAW);
+    const S = FLOATS * 4;
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, S, 0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, S, 16);
+    gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.FLOAT, false, S, 24);
+    gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 4, gl.FLOAT, false, S, 40);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibuf);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idata.byteLength, gl.DYNAMIC_DRAW);
+  }
 
-  let zoomFactor = 1.0;
-  let targetZoom = 1.0;
-  const MIN_ZOOM = 0.2;
-  const MAX_ZOOM = 4.0;
+  /* ===================== 相机（可拖动倾斜 / 缩放） ===================== */
+  let W, H, DPR, F, FZ, D;
+  let yaw = 0, pitch = 0, vYaw = 0, vPitch = 0, zoom = 1, zoomTarget = 1;
+  let cY = 1, sY = 0, cP = 1, sP = 0;
+  let tX = 0, tY = 0, tZ = 0;
 
-  let mouseX = -1000, mouseY = -1000;
+  function camXform(x, y, z) {
+    const x1 = x * cY + z * sY, z1 = -x * sY + z * cY;
+    tX = x1; tY = y * cP - z1 * sP; tZ = y * sP + z1 * cP;
+  }
 
-  let audioCtx = null;
-  let analyser = null;
-  let dataArray = null;
-  let bassLevel = 0;
-  let trebleLevel = 0;
-
-  function initAudio() {
-    if (audioCtx) return;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 256;
-    dataArray = new Uint8Array(analyser.frequencyBinCount);
-    
-    try {
-      const source = audioCtx.createMediaElementSource(bgmAudio);
-      source.connect(analyser);
-      analyser.connect(audioCtx.destination);
-    } catch (e) {
-      console.log("音频分析初始化失败", e);
+  /* 压入一个带 3D 变换的小平面（四边形）。成功返回 true */
+  const QX = new Float32Array(4), QY = new Float32Array(4), QW = new Float32Array(4);
+  const SU = [-1, 1, 1, -1], SV = [-1, -1, 1, 1];
+  function pushQuad(x, y, z, hw, hh, ry, rx, rz, spr, cr, cg, cb, ca, gr, gg, gb, ga, fadeAmt) {
+    if (nq >= maxQ) return false;
+    let ux = hw, uy = 0, uz = 0, vx = 0, vy = hh, vz = 0;
+    if (ry !== 0 || rx !== 0 || rz !== 0) {
+      const cz = Math.cos(rz), sz = Math.sin(rz), cx = Math.cos(rx), sx = Math.sin(rx), cy = Math.cos(ry), sy = Math.sin(ry);
+      let a = hw * cz, b = hw * sz, b2 = b * cx, c2 = b * sx;
+      ux = a * cy + c2 * sy; uy = b2; uz = -a * sy + c2 * cy;
+      a = -hh * sz; b = hh * cz; b2 = b * cx; c2 = b * sx;
+      vx = a * cy + c2 * sy; vy = b2; vz = -a * sy + c2 * cy;
     }
+    camXform(x, y, z);   const Cx = tX, Cy = tY, Cz = tZ;
+    camXform(ux, uy, uz); const Ux = tX, Uy = tY, Uz = tZ;
+    camXform(vx, vy, vz); const Vx = tX, Vy = tY, Vz = tZ;
+
+    const zc0 = D - Cz;
+    if (zc0 < NEAR * 3) return false;
+    for (let i = 0; i < 4; i++) {
+      const X = Cx + SU[i] * Ux + SV[i] * Vx, Y = Cy + SU[i] * Uy + SV[i] * Vy, Z = Cz + SU[i] * Uz + SV[i] * Vz;
+      const zc = D - Z;
+      if (zc < NEAR) return false;
+      QW[i] = zc;
+      QX[i] = (X * FZ / zc) / (W / 2) * zc;
+      QY[i] = -(Y * FZ / zc) / (H / 2) * zc;
+    }
+
+    // 景深：太近、太远的渐隐
+    let a = ca;
+    if (fadeAmt > 0) {
+      const near = clamp((zc0 - 0.1 * F) / (0.2 * F)), far = clamp((2.6 * F - zc0) / (1.2 * F));
+      a *= 1 - fadeAmt * (1 - near * far);
+      if (a < 0.004) return false;
+    }
+
+    const o = nq * 4 * FLOATS;
+    const us = [spr.u0, spr.u1, spr.u1, spr.u0], vs = [spr.v0, spr.v0, spr.v1, spr.v1];
+    for (let i = 0; i < 4; i++) {
+      const p = o + i * FLOATS;
+      vdata[p] = QX[i]; vdata[p + 1] = QY[i]; vdata[p + 2] = 0; vdata[p + 3] = QW[i];
+      vdata[p + 4] = us[i]; vdata[p + 5] = vs[i];
+      vdata[p + 6] = cr; vdata[p + 7] = cg; vdata[p + 8] = cb; vdata[p + 9] = a;
+      vdata[p + 10] = gr; vdata[p + 11] = gg; vdata[p + 12] = gb; vdata[p + 13] = ga;
+    }
+    depth[nq] = zc0;
+    ids.push(nq);
+    nq++;
+    return true;
   }
 
-  function getAudioLevels() {
-    if (!analyser) return;
-    analyser.getByteFrequencyData(dataArray);
-    
-    let bassSum = 0;
-    for (let i = 0; i < 10; i++) bassSum += dataArray[i];
-    bassLevel = (bassSum / 10) / 255;
-    
-    let trebleSum = 0;
-    for (let i = 100; i < 128; i++) trebleSum += dataArray[i];
-    trebleLevel = (trebleSum / 28) / 255;
+  /* ===================== 场景布局 ===================== */
+  let texts = [], dusts = [], hearts = [], startTime = 0, lastNow = 0, rafId = 0, running = false;
+
+  // 3D 空间里的目标位置与朝向：有倾斜的、有翻到背面的、有远有近的，拖动时可以从各个角度欣赏
+  // 初始视野里已经占用的屏幕矩形：新来的字必须避开它们，所以字和字之间不会互相压着
+  let placed = [];
+
+  function sceneTarget(p, avoid) {
+    const r = Math.random();
+    // 朝向克制一些：基本正对观众、轻微倾斜，不再出现一堆歪七扭八的字
+    p.tyaw = rand(-0.5, 0.5); p.tpitch = rand(-0.28, 0.28); p.troll = rand(-0.12, 0.12);
+    let done = false;
+    if (avoid) {                       // 在初始视野里“找空位”放字（大字先放）
+      const wEff = Math.max(8, p.spr.w - 70) * p.tSize / atlasGlow.font, hEff = p.tSize * 1.2;
+      for (let tries = 0; tries < 28 && !done; tries++) {
+        const z = (p.hero ? rand(-0.35, 0.1) : rand(-0.8, 0.25)) * F, zc = F - z, f = F / zc;
+        const cx = rand(-0.5, 0.5) * W, cy = rand(-0.5, 0.5) * H;
+        const hw = wEff * f / 2, hh = hEff * f / 2, m = 14 + p.tSize * 0.4;
+        if (Math.abs(cx) + hw > W * 0.56 || Math.abs(cy) + hh > H * 0.56) continue;
+        let ok = true;
+        for (let k = 0; k < placed.length; k++) {
+          const o = placed[k];
+          if (Math.abs(cx - o.cx) < hw + o.hw + m && Math.abs(cy - o.cy) < hh + o.hh + m) { ok = false; break; }
+        }
+        if (!ok) continue;
+        placed.push({ cx, cy, hw, hh });
+        p.tx = cx / f; p.ty = cy / f; p.tz = z;
+        done = true;
+      }
+    }
+    if (!done && p.free && Math.random() < 0.5) {             // 光点、柔光爱心：一半随意散在初始视野里
+      const z = rand(-0.9, 0.3) * F, zc = F - z;
+      p.tx = rand(-0.55, 0.55) * W * zc / F; p.ty = rand(-0.55, 0.55) * H * zc / F; p.tz = z;
+      done = true;
+    }
+    if (!done) {                               // 其余字分布在周围，旋转时才会看到（朝向中心，转到哪都比较好读）
+      for (let tries = 0; tries < 12; tries++) {              // 尽量放在初始画面之外，避免挤进已经排好的画面里
+        const u = rand(-1, 1), th = rand(0, Math.PI * 2), s = Math.sqrt(1 - u * u), rho = F * rand(0.5, 1.15);
+        p.tx = rho * s * Math.cos(th) * 1.25; p.ty = rho * u * 0.9; p.tz = rho * s * Math.sin(th);
+        const zc = F - p.tz;
+        if (p.tz > 0.4 * F) continue;                         // 太靠近镜头的会变成一大团虚影，不要
+        if (zc < NEAR * 3 || Math.abs(p.tx * F / zc) > W * 0.6 || Math.abs(p.ty * F / zc) > H * 0.6) break;
+      }
+      p.tyaw = Math.atan2(-p.tx, -p.tz) + rand(-0.4, 0.4);
+      p.tpitch = Math.asin(clamp(p.ty / Math.hypot(p.tx, p.ty, p.tz), -1, 1)) * 0.6 + rand(-0.2, 0.2);
+    }
+    // 少量翻到背面（文字镜像）；不再有侧立的字，避免出现一条条竖线
+    if (r < 0.07) p.tyaw += (Math.random() < .5 ? -1 : 1) * Math.PI * rand(0.88, 1.0);
   }
 
-  function easeInOutCubic(t) {
-    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  function build() {
+    const small = Math.min(W, H) < 560;
+    const heartScale = heartScaleNow();
+    const maxHW = heartScale * 9;            // 爱心阶段单条文字的最大宽度（像素）
+    const hp = [0, 0, 0, 0];
+    const nHeart = small ? 480 : 760, nExtra = small ? 50 : 100;   // 额外的字让最终的文字空间更密、更有层次
+    const showProb = small ? 0.1 : 0.09;   // 爱心里几百个字太密了，3D 场景里只保留一部分，其余在炸开瞬间淡出
+    const sizeK = clamp(Math.min(W, H) / 720, 0.7, 1.25);
+    texts = []; dusts = []; hearts = [];
+
+    for (let i = 0; i < nHeart + nExtra; i++) {
+      const inHeart = i < nHeart;
+      const text = Math.random() < 0.1 ? '♥' : MESSAGES[(Math.random() * MESSAGES.length) | 0];
+      const p = {
+        text, spr: atlasGlow.map[text], sprF: atlasFlat.map[text], inHeart,
+        show: !inHeart || Math.random() < showProb,
+        phase: Math.random() * Math.PI * 2,
+        cDelay: Math.random() * 0.25, bDelay: Math.random() * 0.3,
+        pc: HEART_RGB[(Math.random() * HEART_RGB.length) | 0], hb: (Math.random() * 8) | 0,
+        tSize: 0
+      };
+      // 大小悬殊：少量超大的“主角”字、一些中等字、大量小字，拉开远近层次
+      const rs = Math.random();
+      p.hero = rs < 0.03;
+      p.tSize = (p.hero ? rand(60, 100) : rs < 0.25 ? rand(30, 46) : rand(15, 26)) * sizeK;
+      p.tSize = Math.min(p.tSize, W * 0.7 * GLOW_FONT / Math.max(8, p.spr.w - 80));   // 文字空间里单条也不超过屏幕宽度的 70%
+      p.white = p.hero ? 0.4 : 0;              // 主角字的核心更接近白热，发光更强
+      if (inHeart) {
+        // 沿笔画路径“分层均匀”摆放：s 按弧长等距（每个字占一小段），
+        // 横向偏移用低差异序列，保证笔画宽度方向也铺得均匀，不会这里一堆那里一个洞
+        const s = (i + rand(0.08, 0.92)) / nHeart;                // 0~1：笔画进度
+        const off = ((i * 0.7548776662466927) % 1) - 0.5 + rand(-0.05, 0.05);   // -0.5~0.5：笔画宽度方向
+        heartPath(s, hp);
+        const w = STROKE_W * strokeTaper(s);
+        p.s = s;
+        // 汇聚阶段：笔划到这个字的时刻（反推缓动曲线）、字跟在笔后面的滞后、在笔尖周围的散布
+        p.tg = T_LOOP * Math.acos(1 - 2 * s) / Math.PI;
+        p.lag = rand(0.04, T_TAIL);
+        p.ox = rand(-16, 16); p.oy = rand(-16, 16);
+        p.hx = (hp[0] + hp[2] * off * w) * heartScale + rand(-3, 3);
+        p.hy = (hp[1] + hp[3] * off * w) * heartScale + rand(-3, 3);
+        penPos(p.tg, _sw);                                        // 笔划到这个字时笔尖的位置
+        p.ex = p.hx - _sw[0]; p.ey = p.hy - _sw[1];               // 字相对笔尖的偏移：被带走时从这个偏移平滑过渡，不会“跳”
+        p.hSize = text === '♥' ? rand(8, 13) : rand(9, 15);
+        // 句子越长字越小，保证每条在爱心笔画里的宽度不超过 maxW，不会横着溢出一大片
+        p.hSize = Math.max(5, Math.min(p.hSize, maxHW * FLAT_FONT / Math.max(8, p.sprF.w - 8)));
+        // 笔尖经过这个位置的时间（反推缓动曲线），字从笔尖“喷”出来
+        p.tApp = T_PEN_IN + T_DRAW * Math.acos(1 - 2 * s) / Math.PI + rand(0, 0.1);
+        p.sx = hp[0] * heartScale + rand(-12, 12);
+        p.sy = hp[1] * heartScale + rand(-12, 12);
+      } else {
+        p.hSize = 8;
+      }
+      texts.push(p);
+    }
+    // 大字先找位置，小字再填缝，只有会留在 3D 场景里的字才参与“避让”
+    placed = [];
+    texts.slice().sort((a, b) => b.tSize - a.tSize).forEach(p => sceneTarget(p, p.show && p.text !== '♥'));
+    texts.sort(() => Math.random() - 0.5);
+
+    // 漂浮的光点 & 柔光的大爱心
+    const nDust = small ? 110 : 220, nSoft = small ? 12 : 22;
+    for (let i = 0; i < nDust; i++) {
+      const p = { phase: Math.random() * 6.28, size: rand(5, 18), a0: rand(0.25, 0.7), free: true };
+      sceneTarget(p); dusts.push(p);
+    }
+    for (let i = 0; i < nSoft; i++) {
+      const giant = i < 5;                 // 几颗巨大的、朦胧的爱心垫在最远处，当“背景”，增加纵深
+      const p = { phase: Math.random() * 6.28, size: (giant ? rand(380, 620) : rand(70, 190)) * sizeK, a0: giant ? rand(0.12, 0.2) : rand(0.25, 0.5), free: true };
+      sceneTarget(p);
+      if (giant) {
+        const z = rand(-1.0, -0.45) * F, zc = F - z;
+        p.tz = z; p.tx = rand(-0.5, 0.5) * W * zc / F; p.ty = rand(-0.4, 0.4) * H * zc / F;
+      }
+      hearts.push(p);
+    }
+
+    const need = texts.length + dusts.length + hearts.length + 4;
+    if (need > maxQ) allocBuffers(need);
   }
 
-  const itemPool = [];
-  let poolUsed = 0;
-  const drawList = [];
-  function acquireItem() {
-    let item = itemPool[poolUsed];
-    if (!item) { item = { sx: 0, sy: 0, z: 0, persp: 1, word: '', color: '', isHighlight: false }; itemPool[poolUsed] = item; }
-    poolUsed++;
-    return item;
+  /* ===================== 每帧渲染 ===================== */
+  const pal = new Float32Array(8 * 6);   // 8 档色相：文字色(3) + 光晕色(3)
+  const heartCol = new Float32Array(3);
+  const CORE_L = 0.9, GLOW_L = 0.6;
+
+  function updateCamera(t, dt) {
+    const interactive = t > C1 + 1;
+    if (interactive && !pointers.size) {             // 松手后带惯性，空闲时缓慢自转
+      const ramp = clamp((t - C1 - 1) / 4);
+      yaw += (vYaw + AUTO_ROTATE * ramp) * dt;
+      pitch += vPitch * dt;
+      const damp = Math.exp(-2.2 * dt);
+      vYaw *= damp; vPitch *= damp;
+      pitch -= pitch * Math.min(1, dt * 0.25);
+    }
+    pitch = clamp(pitch, -1.25, 1.25);
+    zoom += (zoomTarget - zoom) * Math.min(1, dt * 9);
+    // 炸开时的“冲进去”：镜头从略近的位置缓缓拉回，文字从身边呼啸而过，更有冲击力
+    const rush = t > C1 ? 0.5 * (1 - easeOutCubic(clamp((t - C1) / 4.2))) : 0;
+    FZ = F * zoom * (1 + rush); D = F;
+    cY = Math.cos(yaw); sY = Math.sin(yaw); cP = Math.cos(pitch); sP = Math.sin(pitch);
   }
 
-  let lastTime = 0;
-  let letterTimer = null;
-  let lastFrame = 0;
-  const FRAME_INTERVAL = isMobile() ? 1000 / 30 : 0; // 手机端限 30fps，减半渲染压力
+  /* ===================== 神笔 ===================== */
+  const easeInOutSine = t => (1 - Math.cos(Math.PI * t)) / 2;
+  const _pp = [0, 0, 0, 0];
+  // 笔尖在心形笔画中心线上、进度为 s 的屏幕位置；sigma<1 表示整体向中心收拢
+  function tipAt(s, sigma) {
+    heartPath(s, _pp);
+    const k = heartScaleNow() * sigma;
+    return [W / 2 + _pp[0] * k, H / 2 + _pp[1] * k];
+  }
 
-  function loop(now) {
-    requestAnimationFrame(loop);
+  /* 汇聚阶段笔尖的轨迹（相对屏幕中心，单位像素），tau = 汇聚开始后的秒数：
+   *   第一段：紧贴轮廓把爱心再走一圈（笔一路走，字一路被带走）；
+   *   第二段：拖着整条字带划过一道弧线，落到屏幕中心。
+   * out = [x, y, 散布系数(1=尾巴有一定宽度, 0=收成一点)] */
+  const _sw = [0, 0, 1];
+  function penPos(tau, out) {
+    const k0 = heartScaleNow();
+    if (tau <= T_LOOP) {
+      const s = easeInOutSine(clamp(tau / T_LOOP));
+      heartPath(s, _pp);
+      const k = k0 * (1 - 0.1 * s);                    // 一圈下来略微向内收一点
+      out[0] = _pp[0] * k; out[1] = _pp[1] * k; out[2] = 1;
+    } else {
+      heartPath(1, _pp);
+      const ex = _pp[0] * k0 * 0.9, ey = _pp[1] * k0 * 0.9;
+      const e = easeInOutSine(clamp((tau - T_LOOP) / T_SWOOP));
+      out[0] = ex * (1 - e) + Math.sin(Math.PI * e) * k0 * 5;   // 一道弧线，而不是直线
+      out[1] = ey * (1 - e);
+      out[2] = 1 - e;
+    }
+    return out;
+  }
 
-    if (isMobile() && now - lastFrame < FRAME_INTERVAL) return;
-    lastFrame = now;
-
-    if (!isStarted) {
-      render(0);
-      lastTime = now;
+  function updatePen(t) {
+    const tEnd = T_END;
+    let x, y, op = 1, rot = 0, sc = 1;
+    if (t < T_PEN_IN) {                                // 1 飞入：从右下角划着弧线来到起笔点
+      const k = easeOutCubic(t / T_PEN_IN), [x0, y0] = tipAt(0, 1);
+      x = lerp(W + 80, x0, k); y = lerp(H + 60, y0, k) - Math.sin(k * Math.PI) * H * 0.12;
+      op = clamp(t / (T_PEN_IN * 0.5)); rot = lerp(25, 0, k);
+    } else if (t < tEnd) {                             // 2 勾画爱心
+      const u = (t - T_PEN_IN) / T_DRAW;
+      [x, y] = tipAt(easeInOutSine(u), 1);
+      rot = Math.sin(t * 2.6) * 4 + Math.sin(t * 7) * 1.2;      // 笔在手里轻轻晃动
+    } else if (t < B1) {                               // 3 画完：笔不离场，停在收笔处，紧接着开始收
+      [x, y] = tipAt(1, 1);
+      rot = Math.sin(t * 2.6) * 4 * (1 - clamp((t - tEnd) / T_PAUSE));
+    } else if (t < C1) {                               // 4 笔沿轮廓再走一圈带走字，再拖着它们划向中心，落点后淡出
+      const tau = t - B1;
+      penPos(tau, _sw);
+      x = W / 2 + _sw[0]; y = H / 2 + _sw[1];
+      rot = Math.sin(t * 9) * 3 * _sw[2];
+      const tDone = T_LOOP + T_SWOOP;
+      op = 1 - clamp((tau - tDone) / 0.2);
+      sc = lerp(1, 0.85, clamp((tau - T_LOOP) / T_SWOOP));
+      if (op <= 0) { if (pen.style.opacity !== '0') pen.style.opacity = '0'; return; }
+    } else {
+      if (pen.style.opacity !== '0') pen.style.opacity = '0';
       return;
     }
-
-    if (!lastTime) lastTime = now;
-    let dt = (now - lastTime) / 1000;
-    lastTime = now;
-    if (dt > 0.1) dt = 0.1;
-
-    totalTime += dt;
-    stateTime += dt;
-
-    if (audioCtx && state === 'float') {
-      getAudioLevels();
-      targetZoom = 1.0 + bassLevel * 0.15; 
-    }
-
-    angY += (targetAngY - angY) * 0.12;
-    angX += (targetAngX - angX) * 0.12;
-    zoomFactor += (targetZoom - zoomFactor) * 0.12; 
-
-    const D = CFG.durations;
-    
-    if (state === 'draw' && stateTime >= D.draw) { 
-      state = 'shrink'; stateTime = 0; 
-    }
-    else if (state === 'shrink' && stateTime >= D.shrink) {
-      state = 'explode'; stateTime = 0; 
-      
-      const maxV = Math.max(W, H) * 3.0; 
-      for (let i = 0; i < particles.length; i++) {
-        const p = particles[i];
-        p.x = 0; p.y = 0; p.z = 0; 
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(2 * Math.random() - 1); 
-        const v = maxV * (0.3 + Math.random() * 0.7); 
-        p.vx = v * Math.sin(phi) * Math.cos(theta);
-        p.vy = v * Math.sin(phi) * Math.sin(theta);
-        p.vz = v * Math.cos(phi);
-      }
-
-      if (letterTimer) clearTimeout(letterTimer);
-      letterTimer = setTimeout(() => {
-        if (state === 'float' || state === 'explode') {
-          letterEl.classList.add('show');
-          replayBtn.classList.add('show');
-          saveBtn.classList.add('show');
-        }
-      }, 13140); 
-    }
-    else if (state === 'explode' && stateTime >= D.explode) { 
-      state = 'float'; stateTime = 0; 
-    }
-
-    render(dt);
+    pen.style.opacity = op.toFixed(3);
+    pen.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) rotate(${rot.toFixed(2)}deg) scale(${sc})`;
   }
 
-  function render(dt) {
-    ctx.fillStyle = 'rgba(5, 0, 2, 0.35)'; 
-    ctx.fillRect(0, 0, W, H);
+  function frame(now) {
+    rafId = requestAnimationFrame(frame);
+    const t = (now - startTime) / 1000;
+    const dt = Math.min(0.05, Math.max(0.001, (now - lastNow) / 1000)); lastNow = now;
+    updateCamera(t, dt);
+    const flat = t < C1;                      // 爱心阶段用清晰的“平面图集”，文字墙阶段用“光晕图集”
+    const atlas = flat ? atlasFlat : atlasGlow;
 
-    ctx.fillStyle = '#FFFFFF';
-    for (let i = 0; i < bgStars.length; i++) {
-      const s = bgStars[i];
-      s.y -= s.speed;
-      if (s.y < 0) { s.y = H; s.x = Math.random() * W; }
-      const a = s.alpha + Math.sin(totalTime * 2 + s.phase) * 0.1;
-      ctx.globalAlpha = Math.max(0, a);
-      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+    // 整体色调：以暖蜜桃粉为主，缓慢地在粉与浅橙之间流动（个性化：不照搬冷紫）
+    const baseHue = 345 + 18 * Math.sin(0.08 * Math.max(0, t - C1) + 0.93);   // 363(暖粉) ↔ 327(柔粉)
+    for (let b = 0; b < 8; b++) {
+      const hue = baseHue + (b - 3.5) * 3.5;
+      hsl2rgb(hue, 0.95, CORE_L, pal, b * 6);
+      hsl2rgb(hue, 0.9, GLOW_L, pal, b * 6 + 3);
     }
-    ctx.globalAlpha = 1;
+    hsl2rgb(baseHue + 8, 0.85, 0.6, heartCol, 0);
 
-    let scaleFactor = 1; 
-    let drawProgress = 1; 
+    nq = 0; ids.length = 0;
+    const fadeAmt = clamp((t - C1) / 2);
 
-    if (state === 'draw') {
-      drawProgress = Math.min(stateTime / CFG.durations.draw, 1);
-      drawProgress = easeInOutCubic(drawProgress); 
-    } 
-    else if (state === 'shrink') {
-      const prog = Math.min(stateTime / CFG.durations.shrink, 1);
-      const eased = easeInOutCubic(prog);
-      scaleFactor = 1 - eased;
-    }
+    // ---------- 祝福语 ----------
+    for (let i = 0; i < texts.length; i++) {
+      const p = texts[i];
+      let x, y, z = 0, size, alpha = 1, neon = 0, ry = 0, rx = 0, rz = 0;
 
-    if (isStarted) {
-      for (let i = 0; i < particles.length; i++) {
-        const p = particles[i];
-        if (state === 'draw') {
-          if (p.t <= drawProgress * Math.PI * 2 + 0.1) { 
-             p.x += (p.tx - p.x) * 10 * dt; 
-             p.y += (p.ty - p.y) * 10 * dt;
-             p.z += (p.tz - p.z) * 10 * dt;
-             p.scale += (1 - p.scale) * 10 * dt; 
-          } else {
-             p.x = 0; p.y = 0; p.z = 0; p.scale = 0;
-          }
-        } 
-        else if (state === 'shrink') {
-        } 
-        else if (state === 'explode') {
-          p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
-          const damp = Math.pow(0.1, dt); 
-          p.vx *= damp; p.vy *= damp; p.vz *= damp;
-        } 
-        else if (state === 'float') {
-          p.vx *= Math.pow(0.2, dt); p.vy *= Math.pow(0.2, dt); p.vz *= Math.pow(0.2, dt);
-          p.x += p.vx * dt + Math.sin(totalTime * 0.2 + p.phase) * 0.6;
-          p.y += p.vy * dt + Math.cos(totalTime * 0.25 + p.phase) * 0.6;
-          p.z += p.vz * dt;
-        }
-      }
-    }
-
-    const F = CFG.focal;
-    poolUsed = 0;
-    drawList.length = 0;
-
-    const cosY = Math.cos(angY), sinY = Math.sin(angY);
-    const cosX = Math.cos(angX), sinX = Math.sin(angX);
-
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i];
-      if (p.scale < 0.05) continue;
-
-      let rx = p.x * scaleFactor;
-      let ry = p.y * scaleFactor;
-      let rz = p.z * scaleFactor;
-
-      const x1 = rx * cosY - rz * sinY;
-      const z1 = rx * sinY + rz * cosY;
-      const y1 = ry * cosX - z1 * sinX;
-      const z2 = ry * sinX + z1 * cosX;
-
-      const persp = F / (F + z2);
-      if (persp <= 0.05) continue;
-      
-      const item = acquireItem();
-      item.sx = cx + x1 * persp * zoomFactor;
-      item.sy = cy + y1 * persp * zoomFactor;
-      
-      if (state === 'float' || state === 'explode') {
-        const dx = item.sx - mouseX;
-        const dy = item.sy - mouseY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const repelRadius = 180; 
-        
-        if (dist < repelRadius && dist > 0) {
-          const force = (repelRadius - dist) / repelRadius;
-          const push = force * 80; 
-          item.sx += (dx / dist) * push;
-          item.sy += (dy / dist) * push;
-        }
-      }
-
-      item.z = z2; 
-      item.persp = persp * p.scale * zoomFactor; 
-      item.word = p.word;
-      item.color = p.color;
-      
-      item.isHighlight = (!isMobile() && trebleLevel > 0.6 && Math.random() < 0.3);
-      
-      drawList.push(item);
-    }
-
-    // 手机端跳过每帧排序，省去大数组 sort 开销
-    if (!isMobile()) {
-      drawList.sort(function (a, b) { return b.z - a.z; });
-    }
-
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    let lastFont = '', lastColor = '', lastAlpha = -1;
-    
-    for (let i = 0; i < drawList.length; i++) {
-      const d = drawList[i];
-      let size = CFG.baseFont * d.persp;
-      if (size < CFG.minFont) continue; 
-      if (size > CFG.maxFont * zoomFactor) size = CFG.maxFont * zoomFactor; 
-      
-      const f = getFont(size);
-      if (f !== lastFont) { ctx.font = f; lastFont = f; }
-      
-      const drawColor = d.isHighlight ? '#FFFFFF' : d.color;
-      if (drawColor !== lastColor) { ctx.fillStyle = drawColor; lastColor = drawColor; }
-      
-      let alpha = Math.min(1, Math.max(0.2, d.persp * 1.1));
-      if (letterEl.classList.contains('show')) alpha *= 0.4;
-      if (state === 'shrink') alpha = Math.min(1, alpha + 0.5);
-
-      // 手机端只画一遍，去掉重复描边，降低 fillText 开销
-      if (!isMobile() && (state === 'float' || state === 'explode') && d.persp > 0.8) {
-        ctx.globalAlpha = alpha * 0.25;
-        ctx.fillText(d.word, d.sx, d.sy);
-        ctx.globalAlpha = alpha;
-        ctx.fillText(d.word, d.sx, d.sy);
-        lastAlpha = -1;
-      } else {
-        const roundedAlpha = Math.round(alpha * 20) / 20;
-        if (roundedAlpha !== lastAlpha) { ctx.globalAlpha = roundedAlpha; lastAlpha = roundedAlpha; }
-        ctx.fillText(d.word, d.sx, d.sy);
-      }
-    }
-
-    // ================== 魔法笔特效 ==================
-    if (state === 'draw' && isStarted) {
-      const maxT = drawProgress * Math.PI * 2;
-      
-      if (maxT > 0.1) {
-        ctx.beginPath();
-        const steps = Math.floor(maxT * 10); 
-        for (let i = 0; i <= steps; i++) {
-          const t = (i / steps) * maxT;
-          const px = heartX(t) * heartScale;
-          const py = -heartY(t) * heartScale;
-          
-          const x1 = px * cosY - 0 * sinY;
-          const z1 = px * sinY + 0 * cosY;
-          const y1 = py * cosX - z1 * sinX;
-          const z2 = py * sinX + z1 * cosX;
-          
-          const pPersp = F / (F + z2);
-          const sx = cx + x1 * pPersp * zoomFactor;
-          const sy = cy + y1 * pPersp * zoomFactor;
-          
-          if (i === 0) ctx.moveTo(sx, sy);
-          else ctx.lineTo(sx, sy);
-        }
-        
-        ctx.strokeStyle = 'rgba(255, 105, 180, 0.6)'; 
-        ctx.lineWidth = 6 * zoomFactor;
-        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = '#FF1493'; 
-        ctx.stroke();
-
-        ctx.strokeStyle = '#FFFFFF'; 
-        ctx.lineWidth = 2.5 * zoomFactor;
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = '#FFB6C1';
-        ctx.stroke();
-        
-        ctx.shadowBlur = 0; 
-      }
-
-      const px = heartX(maxT) * heartScale;
-      const py = -heartY(maxT) * heartScale;
-      
-      const x1 = px * cosY - 0 * sinY;
-      const z1 = px * sinY + 0 * cosY;
-      const y1 = py * cosX - z1 * sinX;
-      const z2 = py * sinX + z1 * cosX;
-      
-      const penPersp = F / (F + z2);
-      const penScreenX = cx + x1 * penPersp * zoomFactor;
-      const penScreenY = cy + y1 * penPersp * zoomFactor;
-
-      if (drawProgress < 1) {
-        const trailN = isMobile() ? 1 : 3;
-        for (let i = 0; i < trailN; i++) {
-          if (Math.random() > 0.5) {
-            trailParticles.push({
-              x: penScreenX + (Math.random() - 0.5) * 15,
-              y: penScreenY + (Math.random() - 0.5) * 15,
-              vx: (Math.random() - 0.5) * 1.5,
-              vy: (Math.random() - 0.5) * 1.5 + 0.5,
-              size: (Math.random() * 12 + 8) * zoomFactor,
-              char: TRAIL_CHARS[Math.floor(Math.random() * TRAIL_CHARS.length)],
-              color: TRAIL_COLORS[Math.floor(Math.random() * TRAIL_COLORS.length)],
-              life: 1.0,
-              decay: Math.random() * 0.02 + 0.015
-            });
+      if (t < C1) {                                   // 1 神笔勾画（字从笔尖喷出落位）→ 2 笔带着字汇聚到中心
+        if (!p.inHeart) continue;
+        const k = clamp((t - p.tApp) / T_SPRAY);
+        if (k <= 0) continue;
+        const e = easeOutCubic(k), wob = (1 - e) * 10;
+        x = lerp(p.sx, p.hx, e) + Math.sin(p.phase + t * 3) * wob;
+        y = lerp(p.sy, p.hy, e) + Math.cos(p.phase + t * 3) * wob;
+        size = p.hSize * lerp(0.3, 1, e);
+        alpha = clamp(k * 5);
+        if (t >= B1) {
+          // 笔沿轮廓走到哪里，那里的字就被带走：先紧贴笔尖（位置与被带走前一致，不会跳），
+          // 再渐渐松开成一条跟在笔后面的“尾巴”；笔没到的地方保持原样，所以中心的点要等笔划到才会汇成
+          const tau = t - B1, kg = clamp((tau - p.tg) / T_GRAB);
+          if (kg > 0) {
+            const m = kg * kg * (3 - 2 * kg);                    // 平滑 0→1
+            penPos(tau - p.lag * m, _sw);                         // 笔在 lag*m 秒之前所在的位置（字跟在后面）
+            x = _sw[0] + lerp(p.ex, p.ox * _sw[2], m);
+            y = _sw[1] + lerp(p.ey, p.oy * _sw[2], m);
+            size = lerp(p.hSize, p.hSize * (0.45 + 0.2 * _sw[2]), m);
           }
         }
+      } else {                                        // 4 炸开成文字墙，之后轻轻漂浮
+        const k = clamp(((t - C1) / T_BURST) * (1 + p.bDelay) - p.bDelay);
+        if (!p.inHeart && k <= 0) continue;
+        const e = easeOutQuart(k), er = easeOutCubic(k);
+        const ia = clamp((t - C1 - 1) / 3);
+        x = lerp(0, p.tx, e) + Math.sin(p.phase + t * 0.5) * 7 * ia;
+        y = lerp(0, p.ty, e) + Math.cos(p.phase * 1.3 + t * 0.4) * 6 * ia;
+        z = lerp(0, p.tz, e) + Math.sin(p.phase * 0.7 + t * 0.35) * 0.012 * F * ia;
+        ry = p.tyaw * er + Math.sin(p.phase + t * 0.45) * 0.14 * ia;
+        rx = p.tpitch * er + Math.cos(p.phase + t * 0.35) * 0.06 * ia;
+        rz = p.troll * er;
+        size = lerp(p.inHeart ? p.hSize * 0.45 : 5, p.tSize, er);
+        alpha = !p.inHeart ? clamp(k * 5) : p.show ? 1 : 1 - clamp(k * 5);
+        if (alpha <= 0.003) continue;
+        neon = easeInOutCubic(clamp(k * 1.3));
       }
 
-      if (drawProgress < 1) {
-        ctx.save();
-        ctx.translate(penScreenX, penScreenY);
-        ctx.rotate(totalTime * 2); 
-        
-        ctx.fillStyle = '#FFFFFF';
-        ctx.shadowBlur = 25 * zoomFactor;
-        ctx.shadowColor = '#FF69B4'; 
-        
-        const r = 9 * zoomFactor;
-        ctx.beginPath();
-        ctx.moveTo(0, -r);
-        ctx.quadraticCurveTo(0, 0, r, 0);
-        ctx.quadraticCurveTo(0, 0, 0, r);
-        ctx.quadraticCurveTo(0, 0, -r, 0);
-        ctx.quadraticCurveTo(0, 0, 0, -r);
-        ctx.fill();
-        
-        ctx.beginPath();
-        ctx.arc(0, 0, 3.5 * zoomFactor, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.restore();
-        ctx.shadowBlur = 0; 
-      }
-    }
-
-    for (let i = trailParticles.length - 1; i >= 0; i--) {
-      const p = trailParticles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      p.life -= p.decay;
-      
-      if (p.life <= 0) {
-        trailParticles.splice(i, 1);
-        continue;
-      }
-      
-      ctx.globalAlpha = p.life;
-      ctx.fillStyle = p.color;
-      ctx.font = p.size + 'px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(p.char, p.x, p.y);
-    }
-    
-    ctx.globalAlpha = 1;
-  }
-
-  // --- 交互事件 ---
-  const activePointers = new Map();
-  let initialPinchDistance = 0;
-  let initialZoom = 1;
-
-  let pointerDown = false, pointerMoved = false;
-  let startPointerX = 0, startPointerY = 0, lastPointerX = 0, lastPointerY = 0;
-
-  canvas.addEventListener('pointerdown', function (e) {
-    if (!isStarted) return;
-    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    
-    pointerDown = true;
-    pointerMoved = false;
-    startPointerX = lastPointerX = e.clientX;
-    startPointerY = lastPointerY = e.clientY;
-    isDragging = true;
-    
-    mouseX = e.clientX;
-    mouseY = e.clientY;
-
-    if (activePointers.size === 2) {
-      const pts = Array.from(activePointers.values());
-      initialPinchDistance = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-      initialZoom = targetZoom;
-      isDragging = false;
-    }
-  });
-
-  canvas.addEventListener('pointermove', function (e) {
-    if (!isStarted) return;
-    
-    mouseX = e.clientX;
-    mouseY = e.clientY;
-    
-    if (activePointers.has(e.pointerId)) {
-      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    }
-
-    if (activePointers.size === 2) {
-      const pts = Array.from(activePointers.values());
-      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-      if (initialPinchDistance > 0) {
-        targetZoom = initialZoom * (dist / initialPinchDistance);
-        targetZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, targetZoom));
-      }
-      return; 
-    }
-
-    if (!pointerDown) return;
-    const dx = e.clientX - lastPointerX;
-    const dy = e.clientY - lastPointerY;
-    lastPointerX = e.clientX;
-    lastPointerY = e.clientY;
-    
-    if (Math.abs(e.clientX - startPointerX) + Math.abs(e.clientY - startPointerY) > 6) {
-      pointerMoved = true;
-    }
-    
-    targetAngY += dx * 0.008;
-    targetAngX += dy * 0.005;
-    
-    if (targetAngX > 1.2) targetAngX = 1.2;
-    if (targetAngX < -1.2) targetAngX = -1.2;
-  });
-
-  function endPointer(e) {
-    if (!isStarted) return;
-    activePointers.delete(e.pointerId);
-    if (activePointers.size < 2) {
-      initialPinchDistance = 0;
-    }
-    
-    if (activePointers.size === 0) {
-      mouseX = -1000;
-      mouseY = -1000;
-    }
-
-    if (pointerDown && !pointerMoved && activePointers.size === 0) {
-      const el = document.documentElement;
-      const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
-      if (!fsEl) {
-        const req = el.requestFullscreen || el.webkitRequestFullscreen;
-        if (req) {
-          const r = req.call(el);
-          if (r && r.catch) r.catch(function () {});
+      // 颜色：爱心阶段是固定的粉色，炸开后过渡为发光的霓虹粉
+      let cr = p.pc[0], cg = p.pc[1], cb = p.pc[2];
+      let gr = cr, gg = cg, gb = cb, ga = 0;
+      if (neon > 0) {
+        const o = p.hb * 6;
+        cr = lerp(cr, pal[o], neon); cg = lerp(cg, pal[o + 1], neon); cb = lerp(cb, pal[o + 2], neon);
+        gr = pal[o + 3]; gg = pal[o + 4]; gb = pal[o + 5]; ga = neon;
+        if (p.white) {                                 // 主角字：核心泛白、光晕更足
+          const w = p.white * neon;
+          cr = lerp(cr, 1, w); cg = lerp(cg, 0.96, w); cb = lerp(cb, 1, w);
+          ga = neon * 1.25;
         }
+        alpha *= 1 - 0.16 * neon * (0.5 + 0.5 * Math.sin(p.phase * 2 + t * 1.5));   // 轻微闪烁，像霓虹灯在呼吸
       }
-      hintEl.style.opacity = '0';
+      const spr = flat ? p.sprF : p.spr;
+      const sc = size / atlas.font;
+      pushQuad(x, y, z, spr.w * sc / 2, spr.h * sc / 2, ry, rx, rz, spr, cr, cg, cb, alpha, gr, gg, gb, ga, fadeAmt);
     }
-    pointerDown = false;
-    isDragging = false;
-  }
 
-  canvas.addEventListener('pointerup', endPointer);
-  canvas.addEventListener('pointercancel', endPointer);
-
-  window.addEventListener('wheel', function(e) {
-    if (!isStarted) return;
-    e.preventDefault();
-    targetZoom -= e.deltaY * 0.0015;
-    targetZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, targetZoom));
-  }, { passive: false });
-
-  window.addEventListener('resize', resize);
-
-  const overlay = document.getElementById('intro-overlay');
-  const card = document.getElementById('intro-card');
-  const btnConfirm = document.getElementById('btn-confirm');
-  const btnCancel = document.getElementById('btn-cancel');
-
-  function startGift() {
-    overlay.classList.add('fade-out');
-    card.classList.add('scale-out');
-
-    bgmAudio.volume = 0.6;
-    bgmAudio.play().then(() => {
-      musicTip.classList.remove('paused');
-    }).catch(e => {
-      console.log('播放被拦截或音频缺失', e);
-      musicTip.classList.add('paused');
-    });
-
-    initAudio();
-
-    setTimeout(() => {
-      overlay.style.display = 'none';
-      isStarted = true;
-      lastTime = performance.now();
-    }, 800);
-  }
-
-  // 微信/iOS WebView 里 click 可能不触发，同时绑 touchend，并用 flag 防止重复
-  let started = false;
-  function confirmOnce() { if (started) return; started = true; startGift(); }
-  btnConfirm.addEventListener('click', confirmOnce);
-  btnConfirm.addEventListener('touchend', function (e) { e.preventDefault(); confirmOnce(); });
-
-  musicTip.addEventListener('click', () => {
-    if (bgmAudio.paused) {
-      bgmAudio.play().catch(e=>e);
-      musicTip.classList.remove('paused');
-    } else {
-      bgmAudio.pause();
-      musicTip.classList.add('paused');
-    }
-  });
-
-  let cancelCount = 0;
-  const pleadTexts = [
-    { h1: "真的不要吗？<span>菜小鱼同学</span>🥺", p: "4714的礼物已经准备好啦，看一眼再走嘛~" },
-    { h1: "确定不看看是什么吗？", p: "真的是个超级大惊喜哦！✨" },
-    { h1: "求求你了，就点一下吧~", p: "4714花了好多心思准备的呢 🥺" },
-    { h1: "呜呜呜，不要拒绝我嘛", p: "点“确定”，马上为你开启！" },
-    { h1: "最后一次挽留...", p: "（其实点“确定”一点都不会后悔的！）" }
-  ];
-
-  function pleadCancel() {
-    const h1 = card.querySelector('h1');
-    const p = card.querySelector('p');
-    const textIndex = Math.min(cancelCount, pleadTexts.length - 1);
-    const text = pleadTexts[textIndex];
-    h1.innerHTML = text.h1;
-    p.innerText = text.p;
-    cancelCount++;
-
-    if (cancelCount > 2) {
-      const scaleCancel = Math.max(0.4, 1 - (cancelCount - 2) * 0.2);
-      const scaleConfirm = Math.min(1.4, 1 + (cancelCount - 2) * 0.15);
-      btnCancel.style.transform = `scale(${scaleCancel})`;
-      btnCancel.style.opacity = Math.max(0.4, 1 - (cancelCount - 2) * 0.2);
-      btnConfirm.style.transform = `scale(${scaleConfirm})`;
-      if (cancelCount >= 6) {
-        btnCancel.style.display = 'none';
-        btnConfirm.style.flex = 'none';
-        btnConfirm.style.width = '100%';
+    // ---------- 光点 & 柔光爱心（炸开后淡入） ----------
+    if (t > C1 + 0.4) {
+      const ap = clamp((t - C1 - 0.6) / 2.5), e = easeOutQuart(clamp((t - C1) / T_BURST));
+      for (const p of dusts) {
+        const tw = 0.6 + 0.4 * Math.sin(p.phase + t * 1.6);
+        const x = p.tx * e + Math.sin(p.phase + t * 0.3) * 14, y = p.ty * e + Math.cos(p.phase + t * 0.25) * 12, z = p.tz * e;
+        const s = p.size / 2;
+        pushQuad(x, y, z, s, s, 0, 0, 0, atlas.map.dot, 1, 0.92, 1, p.a0 * tw * ap, 0, 0, 0, 1, fadeAmt);
+      }
+      for (const p of hearts) {
+        const x = p.tx * e + Math.sin(p.phase + t * 0.3) * 18, y = p.ty * e + Math.cos(p.phase + t * 0.22) * 14, z = p.tz * e;
+        const s = p.size / 2 * (1 + 0.05 * Math.sin(p.phase + t * 1.8));
+        const spr = atlas.map.heart;
+        pushQuad(x, y, z, s, s * spr.h / spr.w, Math.sin(p.phase + t * 0.5) * 0.35, Math.cos(p.phase + t * 0.4) * 0.2, Math.sin(p.phase + t * 0.3) * 0.2,
+          spr, heartCol[0], heartCol[1], heartCol[2], p.a0 * ap, 0, 0, 0, 1, fadeAmt);
       }
     }
-  }
-  btnCancel.addEventListener('click', pleadCancel);
-  btnCancel.addEventListener('touchend', function (e) { e.preventDefault(); pleadCancel(); });
 
-  function replayGift() {
-    if (letterTimer) { clearTimeout(letterTimer); letterTimer = null; }
+    // ---------- 提交绘制（由远到近排序，保证半透明叠加正确） ----------
+    if (!flat) ids.sort((a, b) => depth[b] - depth[a]);
+    for (let i = 0; i < ids.length; i++) {
+      const b = ids[i] * 4, o = i * 6;
+      idata[o] = b; idata[o + 1] = b + 1; idata[o + 2] = b + 2; idata[o + 3] = b; idata[o + 4] = b + 2; idata[o + 5] = b + 3;
+    }
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    if (ids.length) {
+      gl.bindTexture(gl.TEXTURE_2D, atlas.tex);
+      gl.bindBuffer(gl.ARRAY_BUFFER, vbuf);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, vdata.subarray(0, nq * 4 * FLOATS));
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibuf);
+      gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, idata.subarray(0, ids.length * 6));
+      gl.drawElements(gl.TRIANGLES, ids.length * 6, gl.UNSIGNED_SHORT, 0);
+    }
+
+    updatePen(t);
+
+    canvas.className = t > C1 + 1 ? (pointers.size ? 'grabbing' : 'grab') : '';
+
+    // 炸开完成（D1）后再等 13.14 秒：淡入结尾情书 + 显示“再看一次”
+    if (t > D1 + 13.14) {
+      letterEl.classList.add('show');
+      replayBtn.classList.add('show');
+    }
+  }
+
+  /* ===================== 尺寸 / 启动 / 交互 ===================== */
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+    F = H * 0.5 / Math.tan(FOV / 2);
+    FZ = F * zoom; D = F;
+  }
+
+  function start() {
+    cancelAnimationFrame(rafId);
+    bgDark.classList.remove('on');
+    bgLight.classList.remove('off'); bgLight.classList.add('on');   // 画爱心阶段的粉色柔光背景淡入
+    clearTimeout(start.lightTimer); clearTimeout(start.fxTimer);
+    for (const id of ['flash']) $(id).classList.remove('go');
     letterEl.classList.remove('show');
     replayBtn.classList.remove('show');
-    saveBtn.classList.remove('show');
+    yaw = pitch = vYaw = vPitch = 0; zoom = zoomTarget = 1; pointers.clear();
+    resize();
+    if (!atlasGlow) { fitMessages(); atlasGlow = buildAtlas(GLOW_FONT, 40, true); atlasFlat = buildAtlas(FLAT_FONT, 4, false); }
+    build();
+    startTime = lastNow = performance.now();
+    running = true;
+    rafId = requestAnimationFrame(frame);
+    // 炸开的瞬间让背景由白渐变为深色
+    clearTimeout(start.bgTimer);
+    start.bgTimer = setTimeout(() => bgDark.classList.add('on'), (C1 + 0.1) * 1000);
+    // 汇聚到点的瞬间：闪光 + 冲击波
+    start.fxTimer = setTimeout(() => { for (const id of ['flash']) $(id).classList.add('go'); }, (C1 - 0.05) * 1000);
+    // 深色背景完全盖住之后，把浅色背景层停掉（省性能）
+    start.lightTimer = setTimeout(() => bgLight.classList.add('off'), (C1 + 0.1 + 2.4) * 1000);
+  }
 
-    state = 'draw';
-    stateTime = 0;
-    totalTime = 0;
-    angY = 0; angX = 0;
-    targetAngY = 0; targetAngX = 0;
-    
-    trailParticles = [];
-    
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i];
-      p.x = 0; p.y = 0; p.z = 0;
-      p.scale = 0; p.vx = 0; p.vy = 0; p.vz = 0;
+  // —— 背景音乐：点击“确定”（用户手势）后自动播放，循环 ——
+  const bgm = new Audio(BGM_URL);
+  bgm.loop = true; bgm.preload = 'auto'; bgm.volume = 0.8;
+  function playBgm() {
+    const r = bgm.play();
+    if (r && r.catch) r.catch(err => console.warn('背景音乐播放失败：', err));
+  }
+
+  $('ok').addEventListener('click', () => {
+    playBgm();
+    mask.classList.add('hide');
+    setTimeout(() => mask.classList.add('gone'), 600);   // 渐隐后彻底移除，不再参与合成
+    start();
+  });
+
+  // 再看一次：隐藏情书/按钮，重头播放
+  function replay() {
+    letterEl.classList.remove('show');
+    replayBtn.classList.remove('show');
+    start();
+  }
+  replayBtn.addEventListener('click', replay);
+  replayBtn.addEventListener('touchend', function (e) { e.preventDefault(); replay(); });
+  // —— 单指拖动 = 倾斜；双指拉伸 = 缩放（鼠标 / 触摸 / 触控笔通用）——
+  const pointers = new Map();
+  let pinchDist = 0, lastMoveT = 0;
+  const canInteract = () => running && (performance.now() - startTime) / 1000 > C1 + 1;
+  const pinchDistance = () => { const a = [...pointers.values()]; return Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); };
+
+  canvas.addEventListener('pointerdown', e => {
+    if (!canInteract()) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    canvas.setPointerCapture(e.pointerId);
+    vYaw = vPitch = 0; lastMoveT = e.timeStamp;
+    if (pointers.size === 2) pinchDist = pinchDistance();
+  });
+  canvas.addEventListener('pointermove', e => {
+    const p = pointers.get(e.pointerId);
+    if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    if (pointers.size >= 2) {
+      const d = pinchDistance();
+      if (pinchDist > 0) zoomTarget = clamp(zoomTarget * d / pinchDist, ZOOM_MIN, ZOOM_MAX);
+      pinchDist = d;
+    } else {
+      const k = 0.0055, dts = Math.max(0.008, (e.timeStamp - lastMoveT) / 1000);
+      yaw += dx * k; pitch = clamp(pitch - dy * k, -1.25, 1.25);
+      vYaw = clamp(lerp(vYaw, dx * k / dts, 0.5), -3, 3);
+      vPitch = clamp(lerp(vPitch, -dy * k / dts, 0.5), -3, 3);
+      lastMoveT = e.timeStamp;
     }
-    
-    if (bgmAudio) { bgmAudio.currentTime = 0; }
-    ctx.fillStyle = '#050002'; ctx.fillRect(0, 0, W, H);
-  }
-  replayBtn.addEventListener('click', replayGift);
-  replayBtn.addEventListener('touchend', function (e) { e.preventDefault(); replayGift(); });
+  });
+  const endPointer = e => {
+    pointers.delete(e.pointerId);
+    pinchDist = 0;
+    if (pointers.size >= 2) pinchDist = pinchDistance();
+  };
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+  canvas.addEventListener('wheel', e => {
+    if (!canInteract()) return;
+    e.preventDefault();
+    zoomTarget = clamp(zoomTarget * (e.deltaY > 0 ? 0.92 : 1.08), ZOOM_MIN, ZOOM_MAX);
+  }, { passive: false });
 
-  function saveGift() {
-    const link = document.createElement('a');
-    link.download = '星河情书.png';
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-  }
-  saveBtn.addEventListener('click', saveGift);
-  saveBtn.addEventListener('touchend', function (e) { e.preventDefault(); saveGift(); });
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (!running) { resize(); return; }
+      const elapsed = performance.now() - startTime;
+      resize(); build();
+      startTime = performance.now() - elapsed;
+    }, 150);
+  });
 
   resize();
-  buildParticles();
-  requestAnimationFrame(loop);
-
-  setTimeout(function () { hintEl.style.opacity = '0'; }, 10000);
-
+  allocBuffers(1);
+  // 暴露给调试用（不影响正常使用）
+  window.__heart = {
+    get t() { return (performance.now() - startTime) / 1000; },
+    timeline: { A1, B1, C1, D1 },
+    set(y, p, z) { yaw = y; pitch = p; zoomTarget = z; }
+  };
 })();
+
+
+
+
 </script>
 </body>
 </html>
+
