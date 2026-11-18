@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>心形绽放 · 专属礼物</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: radial-gradient(circle at center, #2b0018 0%, #14000b 60%, #050002 100%);
+    touch-action: none;
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-user-select: none; user-select: none;
+    cursor: grab;
+  }
+  html:active, body:active { cursor: grabbing; }
+  canvas { display: block; }
+  
+  #hint {
+    position: fixed; left: 50%; bottom: 36px; transform: translateX(-50%);
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 13px; letter-spacing: 3px; white-space: nowrap;
+    pointer-events: none; transition: opacity 1.2s ease;
+  }
+
+  /* ================= 大字情书 ================= */
+  #letter {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    pointer-events: none; opacity: 0; transition: opacity 2s ease-in-out; z-index: 10;
+  }
+  #letter.show { opacity: 1; }
+  #letter h2 {
+    font-size: 42px; color: #FFFFFF; font-weight: 900; letter-spacing: 5px;
+    text-shadow: 0 0 20px rgba(255, 105, 180, 0.8), 0 0 40px rgba(255, 105, 180, 0.4);
+    margin-bottom: 20px; text-align: center; line-height: 1.5;
+  }
+  #letter p { font-size: 22px; color: #FFB6C1; letter-spacing: 3px; text-align: center; font-weight: 500; }
+
+  /* ================= 按钮组 ================= */
+  .action-btn {
+    position: fixed; bottom: 8%; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.35);
+    color: #FFF; padding: 14px 40px; border-radius: 30px; font-size: 16px; letter-spacing: 2px;
+    min-width: 160px; text-align: center; box-sizing: border-box;
+    cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    opacity: 0; pointer-events: none; transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1); z-index: 10;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  }
+  .action-btn.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+  .action-btn:active { background: rgba(255, 105, 180, 0.35); }
+  .action-btn:hover { background: rgba(255, 105, 180, 0.3); border-color: #FF69B4; box-shadow: 0 0 20px rgba(255, 105, 180, 0.4); }
+
+  #replay-btn { bottom: 16%; }
+  #save-btn { bottom: 8%; border-color: rgba(255, 182, 193, 0.5); }
+  #save-btn:hover { background: rgba(255, 182, 193, 0.3); border-color: #FFB6C1; box-shadow: 0 0 20px rgba(255, 182, 193, 0.4); }
+
+  /* 手机端：两按钮上下排列，加大点击区域 */
+  @media (max-width: 600px) {
+    .action-btn { min-width: 200px; padding: 15px 36px; font-size: 16px; }
+    #replay-btn { bottom: 18%; }
+    #save-btn { bottom: 9%; }
+  }
+
+  /* ================= 弹窗样式 ================= */
+  #intro-overlay {
+    position: fixed; inset: 0; background: rgba(20, 0, 10, 0.6);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 100; transition: opacity 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  #intro-card {
+    background: #ffffff; border-radius: 20px; padding: 50px 40px 40px 40px; /* 顶部留出空间给照片 */
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255,255,255,0.5) inset;
+    text-align: center; max-width: 90vw; width: 440px;
+    transform: translateY(0) scale(1); transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative; z-index: 101;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ★ 修改：贴纸风格照片展示区 */
+  .photos-container {
+    display: flex; justify-content: center; align-items: flex-start;
+    height: 120px; position: absolute; top: -60px; left: 0; right: 0;
+  }
+  .intro-photo {
+    width: 120px; height: 120px;
+    object-fit: contain; /* 保证不规则图形不被裁切 */
+    /* 使用 drop-shadow 沿着透明图片的边缘发光，而不是方块阴影 */
+    filter: drop-shadow(0 10px 15px rgba(255, 105, 180, 0.4)); 
+    position: absolute; transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  /* 小男孩稍微靠左、往下一点点，小女孩靠右 */
+  .photo-left { transform: translateX(-45px) translateY(10px) rotate(-8deg); z-index: 1; }
+  .photo-right { transform: translateX(45px) translateY(0px) rotate(8deg); z-index: 2; }
+  .photo-left:hover { transform: translateX(-55px) translateY(5px) rotate(0deg) scale(1.15); z-index: 3; }
+  .photo-right:hover { transform: translateX(55px) translateY(-5px) rotate(0deg) scale(1.15); z-index: 3; }
+
+  #intro-card h1 { font-size: 20px; color: #333; font-weight: 600; margin-bottom: 12px; letter-spacing: 1px; line-height: 1.5; }
+  #intro-card h1 span { color: #FF69B4; font-size: 22px; }
+  #intro-card p { font-size: 14px; color: #999; margin-bottom: 32px; letter-spacing: 1px; }
+  
+  .btn-group { display: flex; gap: 15px; justify-content: center; align-items: center; }
+  .btn {
+    flex: 1; padding: 12px 0; border-radius: 25px; border: none; font-size: 15px; font-weight: 500;
+    cursor: pointer; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); outline: none;
+  }
+  .btn-cancel { background: #F2F2F2; color: #666; }
+  .btn-cancel:hover { background: #E5E5E5; }
+  .btn-confirm { background: linear-gradient(135deg, #FF9EBB 0%, #FF69B4 100%); color: #FFF; box-shadow: 0 6px 20px rgba(255, 105, 180, 0.4); }
+  .btn-confirm:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(255, 105, 180, 0.6); }
+  .btn-confirm:active { transform: translateY(0); }
+  .fade-out { opacity: 0 !important; pointer-events: none; }
+  .scale-out { transform: scale(0.9) !important; }
+
+  #music-tip {
+    position: fixed; top: 20px; right: 20px; color: rgba(255,255,255,0.4);
+    font-size: 20px; cursor: pointer; z-index: 50; transition: all 0.3s;
+  }
+  #music-tip:hover { color: #FF69B4; }
+  #music-tip.paused { opacity: 0.3; }
+</style>
+</head>
+<body>
+
+<audio id="bgm" src="./bgm.mp3" crossorigin="anonymous" loop></audio>
+
+<div id="intro-overlay">
+  <div id="intro-card">
+    
+    <!-- ★ 注意这里图片后缀改成了 .png -->
+    <div class="photos-container">
+      <img src="./photo1.png" class="intro-photo photo-left" alt="小男孩" onerror="this.style.display='none'">
+      <img src="./photo2.png" class="intro-photo photo-right" alt="小女孩" onerror="this.style.display='none'">
+    </div>
+
+    <h1 style="margin-top: 20px;"><span>菜小鱼同学</span>是否要收下<br>这份来自4714的礼物？</h1>
+    <p>有人给你准备了一份小惊喜～</p>
+    <div class="btn-group">
+      <button class="btn btn-cancel" id="btn-cancel">取消</button>
+      <button class="btn btn-confirm" id="btn-confirm">确定</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="c"></canvas>
+<div id="hint">拖拽旋转 · 滚轮缩放 · 滑动拨动星河</div>
+<div id="music-tip" title="点击开关音乐">🎵</div>
+
+<div id="letter">
+  <h2>生日快乐 宝宝</h2>
+  <p>——4714</p>
+</div>
+
+<button id="replay-btn" class="action-btn">再看一次</button>
+<button id="save-btn" class="action-btn">保存这一刻</button>
+
+<script>
+(function () {
+  'use strict';
+
+  const WORDS = [
+    "我爱你", "希望你一直开心", "开心", "万事胜意", "生日快乐", "❤",
+    "平安喜乐", "想你", "很高兴遇见你", "心动", "i luv u", "宝宝",
+    "学会爱自己", "才能更好地爱别人", "我想你了", "早点休息",
+    "记得好好护肤", "天冷了多穿衣服", "今天过得开心嘛", "顺顺利利"
+  ];
+  const COLORS = [
+    "#FFFFFF", "#FFF5F7", "#FFE4E1", "#FFD1DC", "#FFC0CB", 
+    "#FFB6C1", "#FF9EBB", "#FF8FAB", "#FF69B4"
+  ];
+
+  const CFG = {
+    densityFactor: 1.0, 
+    maxParticles: 1600,
+    minParticles: 600,
+    heartScaleDiv: 46,
+    baseFont: 14,        
+    minFont: 8,
+    maxFont: 65,         
+    focal: 800,          
+    durations: {
+      draw: 4.0,      
+      shrink: 1.5,    
+      explode: 1.2,
+    }
+  };
+
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d', { alpha: true }); 
+  const hintEl = document.getElementById('hint');
+  const letterEl = document.getElementById('letter');
+  const replayBtn = document.getElementById('replay-btn');
+  const saveBtn = document.getElementById('save-btn');
+  const bgmAudio = document.getElementById('bgm');
+  const musicTip = document.getElementById('music-tip');
+
+  let W = 0, H = 0, DPR = 1, cx = 0, cy = 0;
+  let heartScale = 1;
+
+  const fontCache = new Map();
+  function getFont(size) {
+    const s = Math.round(size);
+    let f = fontCache.get(s);
+    if (!f) {
+      f = '900 ' + s + 'px "PingFang SC","Microsoft YaHei",sans-serif';
+      fontCache.set(s, f);
+    }
+    return f;
+  }
+
+  let bgStars = [];
+  function initBgStars() {
+    bgStars = [];
+    const starCount = isMobile() ? 35 : 80;
+    for (let i = 0; i < starCount; i++) {
+      bgStars.push({
+        x: Math.random() * W, y: Math.random() * H,
+        r: Math.random() * 2 + 0.5, alpha: Math.random() * 0.5 + 0.1,
+        speed: Math.random() * 0.2 + 0.05, phase: Math.random() * Math.PI * 2
+      });
+    }
+  }
+
+  let trailParticles = [];
+  const TRAIL_CHARS = ['✦', '✧', '+', '·', '❀']; 
+  const TRAIL_COLORS = ['#FFB6C1', '#FFE4E1', '#FFFFFF', '#FF69B4']; 
+
+  function isMobile() {
+    return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 600;
+  }
+
+  function resize() {
+    // 手机端把 DPR 限制到 1.5，避免超高分辨率画布导致掉帧
+    const maxDPR = isMobile() ? 1.5 : 2;
+    DPR = Math.min(window.devicePixelRatio || 1, maxDPR);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    cx = W / 2; cy = H / 2;
+    heartScale = Math.min(W, H) / CFG.heartScaleDiv;
+    initBgStars();
+    if (particles.length) {
+      for (let i = 0; i < particles.length; i++) updateParticleTarget(particles[i]);
+    }
+  }
+
+  function heartX(t) { const s = Math.sin(t); return 16 * s * s * s; }
+  function heartY(t) {
+    return 13 * Math.cos(t) - 5 * Math.cos(2 * t)
+         - 2 * Math.cos(3 * t) - Math.cos(4 * t) + 2.5;
+  }
+
+  let particles = [];
+  function updateParticleTarget(p) {
+    p.tx = heartX(p.t) * heartScale * p.spread;
+    p.ty = -heartY(p.t) * heartScale * p.spread;
+  }
+
+  function createParticle(t) {
+    const spread = 0.88 + Math.random() * 0.14;
+    const p = {
+      t: t, spread: spread, phase: Math.random() * Math.PI * 2,
+      word: WORDS[(Math.random() * WORDS.length) | 0],
+      color: COLORS[(Math.random() * COLORS.length) | 0],
+      tx: 0, ty: 0, tz: (Math.random() - 0.5) * 220 * spread,
+      x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, scale: 0 
+    };
+    updateParticleTarget(p);
+    return p;
+  }
+
+  function buildParticles() {
+    // 手机端大幅减少粒子数量，保证流畅；桌面端保持原密度
+    const mobile = isMobile();
+    const maxP = mobile ? 550 : CFG.maxParticles;
+    const minP = mobile ? 220 : CFG.minParticles;
+    const count = Math.max(minP, Math.min(maxP, Math.round(Math.min(W, H) * CFG.densityFactor)));
+    particles = new Array(count);
+    for (let i = 0; i < count; i++) {
+      const t = (i / count) * Math.PI * 2;
+      particles[i] = createParticle(t);
+    }
+    particles.sort((a, b) => a.t - b.t);
+  }
+
+  let state = 'draw';
+  let stateTime = 0;
+  let totalTime = 0;
+  let isStarted = false; 
+
+  let angY = 0, angX = 0;
+  let targetAngY = 0, targetAngX = 0;
+  let isDragging = false;
+
+  let zoomFactor = 1.0;
+  let targetZoom = 1.0;
+  const MIN_ZOOM = 0.2;
+  const MAX_ZOOM = 4.0;
+
+  let mouseX = -1000, mouseY = -1000;
+
+  let audioCtx = null;
+  let analyser = null;
+  let dataArray = null;
+  let bassLevel = 0;
+  let trebleLevel = 0;
+
+  function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    
+    try {
+      const source = audioCtx.createMediaElementSource(bgmAudio);
+      source.connect(analyser);
+      analyser.connect(audioCtx.destination);
+    } catch (e) {
+      console.log("音频分析初始化失败", e);
+    }
+  }
+
+  function getAudioLevels() {
+    if (!analyser) return;
+    analyser.getByteFrequencyData(dataArray);
+    
+    let bassSum = 0;
+    for (let i = 0; i < 10; i++) bassSum += dataArray[i];
+    bassLevel = (bassSum / 10) / 255;
+    
+    let trebleSum = 0;
+    for (let i = 100; i < 128; i++) trebleSum += dataArray[i];
+    trebleLevel = (trebleSum / 28) / 255;
+  }
+
+  function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  const itemPool = [];
+  let poolUsed = 0;
+  const drawList = [];
+  function acquireItem() {
+    let item = itemPool[poolUsed];
+    if (!item) { item = { sx: 0, sy: 0, z: 0, persp: 1, word: '', color: '', isHighlight: false }; itemPool[poolUsed] = item; }
+    poolUsed++;
+    return item;
+  }
+
+  let lastTime = 0;
+  let letterTimer = null;
+  let lastFrame = 0;
+  const FRAME_INTERVAL = isMobile() ? 1000 / 30 : 0; // 手机端限 30fps，减半渲染压力
+
+  function loop(now) {
+    requestAnimationFrame(loop);
+
+    if (isMobile() && now - lastFrame < FRAME_INTERVAL) return;
+    lastFrame = now;
+
+    if (!isStarted) {
+      render(0);
+      lastTime = now;
+      return;
+    }
+
+    if (!lastTime) lastTime = now;
+    let dt = (now - lastTime) / 1000;
+    lastTime = now;
+    if (dt > 0.1) dt = 0.1;
+
+    totalTime += dt;
+    stateTime += dt;
+
+    if (audioCtx && state === 'float') {
+      getAudioLevels();
+      targetZoom = 1.0 + bassLevel * 0.15; 
+    }
+
+    angY += (targetAngY - angY) * 0.12;
+    angX += (targetAngX - angX) * 0.12;
+    zoomFactor += (targetZoom - zoomFactor) * 0.12; 
+
+    const D = CFG.durations;
+    
+    if (state === 'draw' && stateTime >= D.draw) { 
+      state = 'shrink'; stateTime = 0; 
+    }
+    else if (state === 'shrink' && stateTime >= D.shrink) {
+      state = 'explode'; stateTime = 0; 
+      
+      const maxV = Math.max(W, H) * 3.0; 
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        p.x = 0; p.y = 0; p.z = 0; 
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1); 
+        const v = maxV * (0.3 + Math.random() * 0.7); 
+        p.vx = v * Math.sin(phi) * Math.cos(theta);
+        p.vy = v * Math.sin(phi) * Math.sin(theta);
+        p.vz = v * Math.cos(phi);
+      }
+
+      if (letterTimer) clearTimeout(letterTimer);
+      letterTimer = setTimeout(() => {
+        if (state === 'float' || state === 'explode') {
+          letterEl.classList.add('show');
+          replayBtn.classList.add('show');
+          saveBtn.classList.add('show');
+        }
+      }, 13140); 
+    }
+    else if (state === 'explode' && stateTime >= D.explode) { 
+      state = 'float'; stateTime = 0; 
+    }
+
+    render(dt);
+  }
+
+  function render(dt) {
+    ctx.fillStyle = 'rgba(5, 0, 2, 0.35)'; 
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = '#FFFFFF';
+    for (let i = 0; i < bgStars.length; i++) {
+      const s = bgStars[i];
+      s.y -= s.speed;
+      if (s.y < 0) { s.y = H; s.x = Math.random() * W; }
+      const a = s.alpha + Math.sin(totalTime * 2 + s.phase) * 0.1;
+      ctx.globalAlpha = Math.max(0, a);
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    let scaleFactor = 1; 
+    let drawProgress = 1; 
+
+    if (state === 'draw') {
+      drawProgress = Math.min(stateTime / CFG.durations.draw, 1);
+      drawProgress = easeInOutCubic(drawProgress); 
+    } 
+    else if (state === 'shrink') {
+      const prog = Math.min(stateTime / CFG.durations.shrink, 1);
+      const eased = easeInOutCubic(prog);
+      scaleFactor = 1 - eased;
+    }
+
+    if (isStarted) {
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        if (state === 'draw') {
+          if (p.t <= drawProgress * Math.PI * 2 + 0.1) { 
+             p.x += (p.tx - p.x) * 10 * dt; 
+             p.y += (p.ty - p.y) * 10 * dt;
+             p.z += (p.tz - p.z) * 10 * dt;
+             p.scale += (1 - p.scale) * 10 * dt; 
+          } else {
+             p.x = 0; p.y = 0; p.z = 0; p.scale = 0;
+          }
+        } 
+        else if (state === 'shrink') {
+        } 
+        else if (state === 'explode') {
+          p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+          const damp = Math.pow(0.1, dt); 
+          p.vx *= damp; p.vy *= damp; p.vz *= damp;
+        } 
+        else if (state === 'float') {
+          p.vx *= Math.pow(0.2, dt); p.vy *= Math.pow(0.2, dt); p.vz *= Math.pow(0.2, dt);
+          p.x += p.vx * dt + Math.sin(totalTime * 0.2 + p.phase) * 0.6;
+          p.y += p.vy * dt + Math.cos(totalTime * 0.25 + p.phase) * 0.6;
+          p.z += p.vz * dt;
+        }
+      }
+    }
+
+    const F = CFG.focal;
+    poolUsed = 0;
+    drawList.length = 0;
+
+    const cosY = Math.cos(angY), sinY = Math.sin(angY);
+    const cosX = Math.cos(angX), sinX = Math.sin(angX);
+
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      if (p.scale < 0.05) continue;
+
+      let rx = p.x * scaleFactor;
+      let ry = p.y * scaleFactor;
+      let rz = p.z * scaleFactor;
+
+      const x1 = rx * cosY - rz * sinY;
+      const z1 = rx * sinY + rz * cosY;
+      const y1 = ry * cosX - z1 * sinX;
+      const z2 = ry * sinX + z1 * cosX;
+
+      const persp = F / (F + z2);
+      if (persp <= 0.05) continue;
+      
+      const item = acquireItem();
+      item.sx = cx + x1 * persp * zoomFactor;
+      item.sy = cy + y1 * persp * zoomFactor;
+      
+      if (state === 'float' || state === 'explode') {
+        const dx = item.sx - mouseX;
+        const dy = item.sy - mouseY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const repelRadius = 180; 
+        
+        if (dist < repelRadius && dist > 0) {
+          const force = (repelRadius - dist) / repelRadius;
+          const push = force * 80; 
+          item.sx += (dx / dist) * push;
+          item.sy += (dy / dist) * push;
+        }
+      }
+
+      item.z = z2; 
+      item.persp = persp * p.scale * zoomFactor; 
+      item.word = p.word;
+      item.color = p.color;
+      
+      item.isHighlight = (!isMobile() && trebleLevel > 0.6 && Math.random() < 0.3);
+      
+      drawList.push(item);
+    }
+
+    // 手机端跳过每帧排序，省去大数组 sort 开销
+    if (!isMobile()) {
+      drawList.sort(function (a, b) { return b.z - a.z; });
+    }
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    let lastFont = '', lastColor = '', lastAlpha = -1;
+    
+    for (let i = 0; i < drawList.length; i++) {
+      const d = drawList[i];
+      let size = CFG.baseFont * d.persp;
+      if (size < CFG.minFont) continue; 
+      if (size > CFG.maxFont * zoomFactor) size = CFG.maxFont * zoomFactor; 
+      
+      const f = getFont(size);
+      if (f !== lastFont) { ctx.font = f; lastFont = f; }
+      
+      const drawColor = d.isHighlight ? '#FFFFFF' : d.color;
+      if (drawColor !== lastColor) { ctx.fillStyle = drawColor; lastColor = drawColor; }
+      
+      let alpha = Math.min(1, Math.max(0.2, d.persp * 1.1));
+      if (letterEl.classList.contains('show')) alpha *= 0.4;
+      if (state === 'shrink') alpha = Math.min(1, alpha + 0.5);
+
+      // 手机端只画一遍，去掉重复描边，降低 fillText 开销
+      if (!isMobile() && (state === 'float' || state === 'explode') && d.persp > 0.8) {
+        ctx.globalAlpha = alpha * 0.25;
+        ctx.fillText(d.word, d.sx, d.sy);
+        ctx.globalAlpha = alpha;
+        ctx.fillText(d.word, d.sx, d.sy);
+        lastAlpha = -1;
+      } else {
+        const roundedAlpha = Math.round(alpha * 20) / 20;
+        if (roundedAlpha !== lastAlpha) { ctx.globalAlpha = roundedAlpha; lastAlpha = roundedAlpha; }
+        ctx.fillText(d.word, d.sx, d.sy);
+      }
+    }
+
+    // ================== 魔法笔特效 ==================
+    if (state === 'draw' && isStarted) {
+      const maxT = drawProgress * Math.PI * 2;
+      
+      if (maxT > 0.1) {
+        ctx.beginPath();
+        const steps = Math.floor(maxT * 10); 
+        for (let i = 0; i <= steps; i++) {
+          const t = (i / steps) * maxT;
+          const px = heartX(t) * heartScale;
+          const py = -heartY(t) * heartScale;
+          
+          const x1 = px * cosY - 0 * sinY;
+          const z1 = px * sinY + 0 * cosY;
+          const y1 = py * cosX - z1 * sinX;
+          const z2 = py * sinX + z1 * cosX;
+          
+          const pPersp = F / (F + z2);
+          const sx = cx + x1 * pPersp * zoomFactor;
+          const sy = cy + y1 * pPersp * zoomFactor;
+          
+          if (i === 0) ctx.moveTo(sx, sy);
+          else ctx.lineTo(sx, sy);
+        }
+        
+        ctx.strokeStyle = 'rgba(255, 105, 180, 0.6)'; 
+        ctx.lineWidth = 6 * zoomFactor;
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#FF1493'; 
+        ctx.stroke();
+
+        ctx.strokeStyle = '#FFFFFF'; 
+        ctx.lineWidth = 2.5 * zoomFactor;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#FFB6C1';
+        ctx.stroke();
+        
+        ctx.shadowBlur = 0; 
+      }
+
+      const px = heartX(maxT) * heartScale;
+      const py = -heartY(maxT) * heartScale;
+      
+      const x1 = px * cosY - 0 * sinY;
+      const z1 = px * sinY + 0 * cosY;
+      const y1 = py * cosX - z1 * sinX;
+      const z2 = py * sinX + z1 * cosX;
+      
+      const penPersp = F / (F + z2);
+      const penScreenX = cx + x1 * penPersp * zoomFactor;
+      const penScreenY = cy + y1 * penPersp * zoomFactor;
+
+      if (drawProgress < 1) {
+        const trailN = isMobile() ? 1 : 3;
+        for (let i = 0; i < trailN; i++) {
+          if (Math.random() > 0.5) {
+            trailParticles.push({
+              x: penScreenX + (Math.random() - 0.5) * 15,
+              y: penScreenY + (Math.random() - 0.5) * 15,
+              vx: (Math.random() - 0.5) * 1.5,
+              vy: (Math.random() - 0.5) * 1.5 + 0.5,
+              size: (Math.random() * 12 + 8) * zoomFactor,
+              char: TRAIL_CHARS[Math.floor(Math.random() * TRAIL_CHARS.length)],
+              color: TRAIL_COLORS[Math.floor(Math.random() * TRAIL_COLORS.length)],
+              life: 1.0,
+              decay: Math.random() * 0.02 + 0.015
+            });
+          }
+        }
+      }
+
+      if (drawProgress < 1) {
+        ctx.save();
+        ctx.translate(penScreenX, penScreenY);
+        ctx.rotate(totalTime * 2); 
+        
+        ctx.fillStyle = '#FFFFFF';
+        ctx.shadowBlur = 25 * zoomFactor;
+        ctx.shadowColor = '#FF69B4'; 
+        
+        const r = 9 * zoomFactor;
+        ctx.beginPath();
+        ctx.moveTo(0, -r);
+        ctx.quadraticCurveTo(0, 0, r, 0);
+        ctx.quadraticCurveTo(0, 0, 0, r);
+        ctx.quadraticCurveTo(0, 0, -r, 0);
+        ctx.quadraticCurveTo(0, 0, 0, -r);
+        ctx.fill();
+        
+        ctx.beginPath();
+        ctx.arc(0, 0, 3.5 * zoomFactor, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+        ctx.shadowBlur = 0; 
+      }
+    }
+
+    for (let i = trailParticles.length - 1; i >= 0; i--) {
+      const p = trailParticles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life -= p.decay;
+      
+      if (p.life <= 0) {
+        trailParticles.splice(i, 1);
+        continue;
+      }
+      
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      ctx.font = p.size + 'px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(p.char, p.x, p.y);
+    }
+    
+    ctx.globalAlpha = 1;
+  }
+
+  // --- 交互事件 ---
+  const activePointers = new Map();
+  let initialPinchDistance = 0;
+  let initialZoom = 1;
+
+  let pointerDown = false, pointerMoved = false;
+  let startPointerX = 0, startPointerY = 0, lastPointerX = 0, lastPointerY = 0;
+
+  canvas.addEventListener('pointerdown', function (e) {
+    if (!isStarted) return;
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    
+    pointerDown = true;
+    pointerMoved = false;
+    startPointerX = lastPointerX = e.clientX;
+    startPointerY = lastPointerY = e.clientY;
+    isDragging = true;
+    
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+
+    if (activePointers.size === 2) {
+      const pts = Array.from(activePointers.values());
+      initialPinchDistance = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      initialZoom = targetZoom;
+      isDragging = false;
+    }
+  });
+
+  canvas.addEventListener('pointermove', function (e) {
+    if (!isStarted) return;
+    
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+    
+    if (activePointers.has(e.pointerId)) {
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+
+    if (activePointers.size === 2) {
+      const pts = Array.from(activePointers.values());
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      if (initialPinchDistance > 0) {
+        targetZoom = initialZoom * (dist / initialPinchDistance);
+        targetZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, targetZoom));
+      }
+      return; 
+    }
+
+    if (!pointerDown) return;
+    const dx = e.clientX - lastPointerX;
+    const dy = e.clientY - lastPointerY;
+    lastPointerX = e.clientX;
+    lastPointerY = e.clientY;
+    
+    if (Math.abs(e.clientX - startPointerX) + Math.abs(e.clientY - startPointerY) > 6) {
+      pointerMoved = true;
+    }
+    
+    targetAngY += dx * 0.008;
+    targetAngX += dy * 0.005;
+    
+    if (targetAngX > 1.2) targetAngX = 1.2;
+    if (targetAngX < -1.2) targetAngX = -1.2;
+  });
+
+  function endPointer(e) {
+    if (!isStarted) return;
+    activePointers.delete(e.pointerId);
+    if (activePointers.size < 2) {
+      initialPinchDistance = 0;
+    }
+    
+    if (activePointers.size === 0) {
+      mouseX = -1000;
+      mouseY = -1000;
+    }
+
+    if (pointerDown && !pointerMoved && activePointers.size === 0) {
+      const el = document.documentElement;
+      const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+      if (!fsEl) {
+        const req = el.requestFullscreen || el.webkitRequestFullscreen;
+        if (req) {
+          const r = req.call(el);
+          if (r && r.catch) r.catch(function () {});
+        }
+      }
+      hintEl.style.opacity = '0';
+    }
+    pointerDown = false;
+    isDragging = false;
+  }
+
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+
+  window.addEventListener('wheel', function(e) {
+    if (!isStarted) return;
+    e.preventDefault();
+    targetZoom -= e.deltaY * 0.0015;
+    targetZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, targetZoom));
+  }, { passive: false });
+
+  window.addEventListener('resize', resize);
+
+  const overlay = document.getElementById('intro-overlay');
+  const card = document.getElementById('intro-card');
+  const btnConfirm = document.getElementById('btn-confirm');
+  const btnCancel = document.getElementById('btn-cancel');
+
+  function startGift() {
+    overlay.classList.add('fade-out');
+    card.classList.add('scale-out');
+
+    bgmAudio.volume = 0.6;
+    bgmAudio.play().then(() => {
+      musicTip.classList.remove('paused');
+    }).catch(e => {
+      console.log('播放被拦截或音频缺失', e);
+      musicTip.classList.add('paused');
+    });
+
+    initAudio();
+
+    setTimeout(() => {
+      overlay.style.display = 'none';
+      isStarted = true;
+      lastTime = performance.now();
+    }, 800);
+  }
+
+  // 微信/iOS WebView 里 click 可能不触发，同时绑 touchend，并用 flag 防止重复
+  let started = false;
+  function confirmOnce() { if (started) return; started = true; startGift(); }
+  btnConfirm.addEventListener('click', confirmOnce);
+  btnConfirm.addEventListener('touchend', function (e) { e.preventDefault(); confirmOnce(); });
+
+  musicTip.addEventListener('click', () => {
+    if (bgmAudio.paused) {
+      bgmAudio.play().catch(e=>e);
+      musicTip.classList.remove('paused');
+    } else {
+      bgmAudio.pause();
+      musicTip.classList.add('paused');
+    }
+  });
+
+  let cancelCount = 0;
+  const pleadTexts = [
+    { h1: "真的不要吗？<span>菜小鱼同学</span>🥺", p: "4714的礼物已经准备好啦，看一眼再走嘛~" },
+    { h1: "确定不看看是什么吗？", p: "真的是个超级大惊喜哦！✨" },
+    { h1: "求求你了，就点一下吧~", p: "4714花了好多心思准备的呢 🥺" },
+    { h1: "呜呜呜，不要拒绝我嘛", p: "点“确定”，马上为你开启！" },
+    { h1: "最后一次挽留...", p: "（其实点“确定”一点都不会后悔的！）" }
+  ];
+
+  function pleadCancel() {
+    const h1 = card.querySelector('h1');
+    const p = card.querySelector('p');
+    const textIndex = Math.min(cancelCount, pleadTexts.length - 1);
+    const text = pleadTexts[textIndex];
+    h1.innerHTML = text.h1;
+    p.innerText = text.p;
+    cancelCount++;
+
+    if (cancelCount > 2) {
+      const scaleCancel = Math.max(0.4, 1 - (cancelCount - 2) * 0.2);
+      const scaleConfirm = Math.min(1.4, 1 + (cancelCount - 2) * 0.15);
+      btnCancel.style.transform = `scale(${scaleCancel})`;
+      btnCancel.style.opacity = Math.max(0.4, 1 - (cancelCount - 2) * 0.2);
+      btnConfirm.style.transform = `scale(${scaleConfirm})`;
+      if (cancelCount >= 6) {
+        btnCancel.style.display = 'none';
+        btnConfirm.style.flex = 'none';
+        btnConfirm.style.width = '100%';
+      }
+    }
+  }
+  btnCancel.addEventListener('click', pleadCancel);
+  btnCancel.addEventListener('touchend', function (e) { e.preventDefault(); pleadCancel(); });
+
+  function replayGift() {
+    if (letterTimer) { clearTimeout(letterTimer); letterTimer = null; }
+    letterEl.classList.remove('show');
+    replayBtn.classList.remove('show');
+    saveBtn.classList.remove('show');
+
+    state = 'draw';
+    stateTime = 0;
+    totalTime = 0;
+    angY = 0; angX = 0;
+    targetAngY = 0; targetAngX = 0;
+    
+    trailParticles = [];
+    
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      p.x = 0; p.y = 0; p.z = 0;
+      p.scale = 0; p.vx = 0; p.vy = 0; p.vz = 0;
+    }
+    
+    if (bgmAudio) { bgmAudio.currentTime = 0; }
+    ctx.fillStyle = '#050002'; ctx.fillRect(0, 0, W, H);
+  }
+  replayBtn.addEventListener('click', replayGift);
+  replayBtn.addEventListener('touchend', function (e) { e.preventDefault(); replayGift(); });
+
+  function saveGift() {
+    const link = document.createElement('a');
+    link.download = '星河情书.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }
+  saveBtn.addEventListener('click', saveGift);
+  saveBtn.addEventListener('touchend', function (e) { e.preventDefault(); saveGift(); });
+
+  resize();
+  buildParticles();
+  requestAnimationFrame(loop);
+
+  setTimeout(function () { hintEl.style.opacity = '0'; }, 10000);
+
+})();
+</script>
+</body>
+</html>
